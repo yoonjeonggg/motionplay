@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Application, BlurFilter, Container, Graphics } from 'pixi.js'
+import {
+  drawTopping,
+  type ToppingKind,
+  TOPPING_COLORS,
+  ToppingField,
+} from './toppings'
 import { type Vec2, VerletBlob } from './verletBlob'
 
 /** Imperative handle used to drive the slime from pointer or hand input. */
@@ -13,6 +19,11 @@ export type SlimeController = {
   setColor: (rgb: number) => void
   /** 0 = firm, 1 = very soft/goopy. */
   setSoftness: (v: number) => void
+  /** Stick a topping to the slime at a canvas-pixel position. */
+  addTopping: (kind: ToppingKind, pos: Vec2) => void
+  clearToppings: () => void
+  /** Show/hide a topping being carried toward the slime (null clears it). */
+  setHeldTopping: (kind: ToppingKind | null, pos: Vec2 | null) => void
   center: () => Vec2
   /** Canvas size in CSS pixels. */
   size: () => { w: number; h: number }
@@ -56,6 +67,8 @@ export function useSlime(): UseSlimeResult {
       { w: view.w, h: view.h },
     )
     let color = DEFAULT_COLOR
+    const field = new ToppingField()
+    let held: { kind: ToppingKind; pos: Vec2 } | null = null
 
     const tick = (dtMs: number) => {
       if (disposed) return
@@ -65,6 +78,7 @@ export function useSlime(): UseSlimeResult {
 
     let body: Graphics
     let gloss: Graphics
+    let toppingGfx: Graphics
     const draw = () => {
       const pts = blob.points
       const last = pts[pts.length - 1]
@@ -87,6 +101,23 @@ export function useSlime(): UseSlimeResult {
       gloss.clear()
       gloss.ellipse(c.x - 16, c.y - 24, 32, 19)
       gloss.fill({ color: 0xffffff, alpha: 0.16 })
+
+      toppingGfx.clear()
+      for (const t of field.list) {
+        const p = field.positionOf(t, blob)
+        drawTopping(toppingGfx, t.kind, p.x, p.y, t.size, TOPPING_COLORS[t.kind])
+      }
+      if (held) {
+        drawTopping(
+          toppingGfx,
+          held.kind,
+          held.pos.x,
+          held.pos.y,
+          18,
+          TOPPING_COLORS[held.kind],
+          0.65,
+        )
+      }
     }
 
     // init() returns a promise; keep a handle so teardown always runs *after*
@@ -109,7 +140,9 @@ export function useSlime(): UseSlimeResult {
         body = new Graphics()
         gloss = new Graphics()
         layer.addChild(body, gloss)
-        app.stage.addChild(layer)
+        // Toppings sit above the gooey blur layer so they stay crisp.
+        toppingGfx = new Graphics()
+        app.stage.addChild(layer, toppingGfx)
 
         app.ticker.add((t) => tick(t.deltaMS))
 
@@ -122,6 +155,11 @@ export function useSlime(): UseSlimeResult {
             color = rgb
           },
           setSoftness: (v) => blob.setParams(softnessToParams(v)),
+          addTopping: (kind, pos) => field.add(kind, pos, blob),
+          clearToppings: () => field.clear(),
+          setHeldTopping: (kind, pos) => {
+            held = kind && pos ? { kind, pos } : null
+          },
           center: () => blob.center(),
           size: () => ({ ...view }),
         }
