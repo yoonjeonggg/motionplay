@@ -19,6 +19,10 @@
   cursor: grabbing;
 }
 
+.slime-canvas[data-mode='topping'] {
+  cursor: crosshair;
+}
+
 .dock-bottom {
   position: absolute;
   left: 50%;
@@ -42,6 +46,11 @@
   pointer-events: none;
 }
 
+.dock-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .reset-btn {
   padding: 8px 18px;
   font-size: 13px;
@@ -56,6 +65,29 @@
 
 .reset-btn:hover {
   background: rgba(255, 255, 255, 0.16);
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.mode-toggle button {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #b9b4c7;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.mode-toggle button[data-active='true'] {
+  color: #0a0a12;
+  background: #c4b5fd;
+  border-color: #c4b5fd;
 }
 
 /* Slime customization panel (top-left) --------------------------------- */
