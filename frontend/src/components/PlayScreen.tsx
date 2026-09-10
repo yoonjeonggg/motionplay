@@ -1,9 +1,15 @@
+import { useRef } from 'react'
 import type { CameraStatus } from '../hooks/useCamera'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracking } from '../hooks/useHandTracking'
+import { useSlime } from '../slime/useSlime'
 import './PlayScreen.css'
 
+const GRAB_RADIUS = 92
+
 export function PlayScreen() {
+  const { canvasRef, controller } = useSlime()
+
   const { videoRef, status: cameraStatus, error: cameraError, start } = useCamera()
   const streaming = cameraStatus === 'streaming'
   const {
@@ -14,38 +20,76 @@ export function PlayScreen() {
     fps,
   } = useHandTracking(videoRef, streaming)
 
+  const dragging = useRef(false)
+  const last = useRef({ x: 0, y: 0 })
+
+  const toLocal = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    dragging.current = true
+    last.current = toLocal(e)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!dragging.current) return
+    const p = toLocal(e)
+    controller.current?.grab(
+      last.current,
+      { x: p.x - last.current.x, y: p.y - last.current.y },
+      GRAB_RADIUS,
+    )
+    last.current = p
+  }
+
+  const endDrag = () => {
+    dragging.current = false
+    controller.current?.release()
+  }
+
   return (
     <div className="stage">
-      <div className="viewport">
-        <video
-          ref={videoRef}
-          className="camera-feed"
-          playsInline
-          muted
-          data-active={streaming}
-        />
-        <canvas ref={overlayRef} className="hand-overlay" data-active={streaming} />
+      <canvas
+        ref={canvasRef}
+        className="slime-canvas"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      />
 
-        {streaming && (
-          <div className="hud">
-            <StatusBadge
+      <p className="hint">슬라임을 드래그해 누르고 늘려 보세요</p>
+
+      <div className="camera-dock">
+        <div className="pip" data-streaming={streaming}>
+          <video ref={videoRef} className="pip-feed" playsInline muted />
+          <canvas ref={overlayRef} className="pip-overlay" />
+          {streaming && (
+            <TrackerBadge
               status={trackerStatus}
               error={trackerError}
               handCount={handCount}
               fps={fps}
             />
-          </div>
-        )}
+          )}
+        </div>
 
         {!streaming && (
-          <Onboarding status={cameraStatus} error={cameraError} onStart={start} />
+          <HandControlPrompt
+            status={cameraStatus}
+            error={cameraError}
+            onStart={start}
+          />
         )}
       </div>
     </div>
   )
 }
 
-function StatusBadge({
+function TrackerBadge({
   status,
   error,
   handCount,
@@ -56,23 +100,21 @@ function StatusBadge({
   handCount: number
   fps: number
 }) {
-  if (status === 'loading') {
-    return <span className="badge badge--wait">손 인식 모델 로딩 중…</span>
+  let text = ''
+  let tone = 'wait'
+  if (status === 'loading') text = '손 인식 모델 로딩 중…'
+  else if (status === 'error') {
+    text = error ?? '인식 오류'
+    tone = 'error'
+  } else if (handCount === 0) text = '손을 보여주세요'
+  else {
+    text = `손 ${handCount}개 · ${fps}fps`
+    tone = 'ok'
   }
-  if (status === 'error') {
-    return <span className="badge badge--error">{error ?? '인식 오류'}</span>
-  }
-  if (handCount === 0) {
-    return <span className="badge badge--wait">손을 카메라에 보여주세요</span>
-  }
-  return (
-    <span className="badge badge--ok">
-      손 {handCount}개 인식 중 · {fps}fps
-    </span>
-  )
+  return <span className={`pip-badge pip-badge--${tone}`}>{text}</span>
 }
 
-function Onboarding({
+function HandControlPrompt({
   status,
   error,
   onStart,
@@ -83,25 +125,19 @@ function Onboarding({
 }) {
   const requesting = status === 'requesting'
   return (
-    <div className="onboarding">
-      <h1>MotionPlaying</h1>
-      <p className="tagline">
-        손동작으로 슬라임을 조몰락거리며 노는 웹 인터랙티브 플레이
-      </p>
-      <ol className="guide">
-        <li>밝은 곳에서 카메라에 손이 잘 보이도록 하세요.</li>
-        <li>손을 쥐면 누르기, 펴면 늘리기 동작이 됩니다.</li>
-        <li>영상은 기기에서만 처리되며 서버로 전송되지 않습니다.</li>
-      </ol>
+    <div className="hand-prompt">
       <button
         type="button"
-        className="start-btn"
+        className="hand-prompt-btn"
         onClick={onStart}
         disabled={requesting}
       >
-        {requesting ? '카메라 준비 중…' : '카메라 시작'}
+        {requesting ? '카메라 준비 중…' : '✋ 손으로 조작하기'}
       </button>
-      {error && <p className="onboarding-error">{error}</p>}
+      <p className="hand-prompt-note">
+        영상은 기기에서만 처리되며 서버로 전송되지 않습니다.
+      </p>
+      {error && <p className="hand-prompt-error">{error}</p>}
     </div>
   )
 }
