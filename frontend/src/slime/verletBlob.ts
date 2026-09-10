@@ -35,6 +35,9 @@ export type BlobOptions = {
   constraintIterations?: number
 }
 
+/** Options that can be changed on a live blob via {@link VerletBlob.setParams}. */
+export type Tunable = 'damping' | 'edgeStiffness' | 'pressure'
+
 const DEFAULTS = {
   points: 28,
   gravity: 1400,
@@ -67,6 +70,11 @@ export class VerletBlob {
 
   setBounds(w: number, h: number) {
     this.bounds = { w, h }
+  }
+
+  /** Adjust feel at runtime (e.g. a viscosity slider). */
+  setParams(p: Partial<Pick<Required<BlobOptions>, Tunable>>) {
+    Object.assign(this.opts, p)
   }
 
   /** Snap every point back to the starting circle. */

@@ -58,6 +58,62 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
+/* Slime customization panel (top-left) --------------------------------- */
+.slime-panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(10, 10, 18, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #b9b4c7;
+  width: 40px;
+}
+
+.swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+}
+
+.swatch[data-active='true'] {
+  border-color: #fff;
+}
+
+.softness {
+  width: 120px;
+  accent-color: #a855f7;
+}
+
 /* Camera dock (top-right) ------------------------------------------------ */
 .camera-dock {
   position: absolute;
