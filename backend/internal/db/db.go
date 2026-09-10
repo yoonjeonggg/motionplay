@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"motionplay/backend/internal/creation"
 	"motionplay/backend/internal/user"
 )
 
@@ -37,5 +38,5 @@ func Open(dsn string) (*gorm.DB, error) {
 
 // Migrate brings the schema up to date.
 func Migrate(gdb *gorm.DB) error {
-	return gdb.AutoMigrate(&user.User{})
+	return gdb.AutoMigrate(&user.User{}, &creation.Creation{})
 }

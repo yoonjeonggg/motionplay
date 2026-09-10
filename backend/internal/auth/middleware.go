@@ -13,7 +13,7 @@ const contextUserID = "userID"
 
 // Middleware rejects requests without a valid bearer token and stores the
 // authenticated user ID in the gin context.
-func (h *Handler) Middleware() gin.HandlerFunc {
+func Middleware(tokens *TokenIssuer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		token, ok := strings.CutPrefix(header, "Bearer ")
@@ -21,7 +21,7 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 			httpx.Error(c, http.StatusUnauthorized, "missing bearer token")
 			return
 		}
-		id, err := h.tokens.Parse(token)
+		id, err := tokens.Parse(token)
 		if err != nil {
 			httpx.Error(c, http.StatusUnauthorized, "invalid or expired token")
 			return
