@@ -9,6 +9,10 @@ export type SlimeController = {
   release: () => void
   /** Snap the slime back into a blob at the centre. */
   reset: () => void
+  /** Fill colour as a 24-bit RGB number. */
+  setColor: (rgb: number) => void
+  /** 0 = firm, 1 = very soft/goopy. */
+  setSoftness: (v: number) => void
   center: () => Vec2
   /** Canvas size in CSS pixels. */
   size: () => { w: number; h: number }
@@ -20,8 +24,18 @@ type UseSlimeResult = {
   ready: boolean
 }
 
-const SLIME_COLOR = 0x7cf29c
+const DEFAULT_COLOR = 0x7cf29c
 const SLIME_ALPHA = 0.92
+
+/** Maps a 0..1 softness slider onto the blob's spring/damping feel. */
+function softnessToParams(v: number) {
+  const t = Math.min(Math.max(v, 0), 1)
+  return {
+    edgeStiffness: 0.95 - t * 0.42,
+    pressure: 0.95 - t * 0.4,
+    damping: 0.8 + t * 0.13,
+  }
+}
 
 export function useSlime(): UseSlimeResult {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -41,6 +55,7 @@ export function useSlime(): UseSlimeResult {
       { cx: view.w / 2, cy: view.h * 0.5, radius: Math.min(view.w, view.h) * 0.22 },
       { w: view.w, h: view.h },
     )
+    let color = DEFAULT_COLOR
 
     const tick = (dtMs: number) => {
       if (disposed) return
@@ -66,7 +81,7 @@ export function useSlime(): UseSlimeResult {
         )
       }
       body.closePath()
-      body.fill({ color: SLIME_COLOR, alpha: SLIME_ALPHA })
+      body.fill({ color, alpha: SLIME_ALPHA })
 
       const c = blob.center()
       gloss.clear()
@@ -103,6 +118,10 @@ export function useSlime(): UseSlimeResult {
           press: (pos, radius, strength) => blob.press(pos, radius, strength),
           release: () => blob.releaseGrab(),
           reset: () => blob.reset({ x: view.w / 2, y: view.h * 0.5 }),
+          setColor: (rgb) => {
+            color = rgb
+          },
+          setSoftness: (v) => blob.setParams(softnessToParams(v)),
           center: () => blob.center(),
           size: () => ({ ...view }),
         }

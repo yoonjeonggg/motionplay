@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CameraStatus } from '../hooks/useCamera'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracking } from '../hooks/useHandTracking'
@@ -9,11 +9,30 @@ import './PlayScreen.css'
 const GRAB_RADIUS = 92
 const GESTURE_UI_INTERVAL = 120
 
+const SLIME_COLORS = [
+  { name: '민트', rgb: 0x7cf29c, css: '#7cf29c' },
+  { name: '핑크', rgb: 0xf9a8d4, css: '#f9a8d4' },
+  { name: '블루', rgb: 0x93c5fd, css: '#93c5fd' },
+  { name: '퍼플', rgb: 0xc4b5fd, css: '#c4b5fd' },
+  { name: '옐로', rgb: 0xfde68a, css: '#fde68a' },
+]
+const DEFAULT_SOFTNESS = 0.4
+
 export function PlayScreen() {
-  const { canvasRef, controller } = useSlime()
+  const { canvasRef, controller, ready } = useSlime()
 
   const [gestures, setGestures] = useState<HandGesture[]>([])
   const lastGestureUi = useRef(0)
+
+  const [colorIndex, setColorIndex] = useState(0)
+  const [softness, setSoftness] = useState(DEFAULT_SOFTNESS)
+
+  // Push the current look to the slime once it exists and whenever it changes.
+  useEffect(() => {
+    if (!ready) return
+    controller.current?.setColor(SLIME_COLORS[colorIndex].rgb)
+    controller.current?.setSoftness(softness)
+  }, [ready, colorIndex, softness, controller])
 
   const handDriverRef = useRef<ReturnType<typeof createHandSlimeDriver> | null>(
     null,
@@ -82,6 +101,13 @@ export function PlayScreen() {
         onPointerCancel={endDrag}
       />
 
+      <SlimePanel
+        colorIndex={colorIndex}
+        softness={softness}
+        onColor={setColorIndex}
+        onSoftness={setSoftness}
+      />
+
       <div className="dock-bottom">
         <p className="hint">
           {streaming
@@ -121,6 +147,52 @@ export function PlayScreen() {
             onStart={start}
           />
         )}
+      </div>
+    </div>
+  )
+}
+
+function SlimePanel({
+  colorIndex,
+  softness,
+  onColor,
+  onSoftness,
+}: {
+  colorIndex: number
+  softness: number
+  onColor: (i: number) => void
+  onSoftness: (v: number) => void
+}) {
+  return (
+    <div className="slime-panel">
+      <div className="panel-row">
+        <span className="panel-label">색상</span>
+        <div className="swatches">
+          {SLIME_COLORS.map((c, i) => (
+            <button
+              key={c.name}
+              type="button"
+              className="swatch"
+              style={{ background: c.css }}
+              data-active={i === colorIndex}
+              aria-label={c.name}
+              aria-pressed={i === colorIndex}
+              onClick={() => onColor(i)}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="panel-row">
+        <span className="panel-label">말랑함</span>
+        <input
+          type="range"
+          className="softness"
+          min={0}
+          max={1}
+          step={0.05}
+          value={softness}
+          onChange={(e) => onSoftness(Number(e.target.value))}
+        />
       </div>
     </div>
   )
