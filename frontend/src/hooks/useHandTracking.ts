@@ -26,11 +26,19 @@ const HANDEDNESS_COLORS: Record<string, string> = {
 export function useHandTracking(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   enabled: boolean,
+  onHands?: (hands: NormalizedLandmark[][]) => void,
 ): UseHandTrackingResult {
   const overlayRef = useRef<HTMLCanvasElement | null>(null)
   const trackerRef = useRef<HandTracker | null>(null)
   const rafRef = useRef(0)
   const latestLandmarksRef = useRef<NormalizedLandmark[][]>([])
+
+  // Keep the callback in a ref so a new closure each render doesn't restart
+  // the tracker.
+  const onHandsRef = useRef(onHands)
+  useEffect(() => {
+    onHandsRef.current = onHands
+  })
 
   const [status, setStatus] = useState<TrackerStatus>('loading')
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +93,8 @@ export function useHandTracking(
           HANDEDNESS_COLORS[handedness] ?? '#f472b6',
         )
       })
+
+      onHandsRef.current?.(hands)
 
       frames += 1
       if (now - fpsWindowStart >= 500) {

@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import type { CameraStatus } from '../hooks/useCamera'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracking } from '../hooks/useHandTracking'
+import { createHandSlimeDriver } from '../slime/handControl'
 import { useSlime } from '../slime/useSlime'
 import './PlayScreen.css'
 
@@ -9,6 +10,11 @@ const GRAB_RADIUS = 92
 
 export function PlayScreen() {
   const { canvasRef, controller } = useSlime()
+
+  const handDriverRef = useRef<ReturnType<typeof createHandSlimeDriver> | null>(
+    null,
+  )
+  handDriverRef.current ??= createHandSlimeDriver(() => controller.current)
 
   const { videoRef, status: cameraStatus, error: cameraError, start } = useCamera()
   const streaming = cameraStatus === 'streaming'
@@ -18,7 +24,9 @@ export function PlayScreen() {
     error: trackerError,
     handCount,
     fps,
-  } = useHandTracking(videoRef, streaming)
+  } = useHandTracking(videoRef, streaming, (hands) =>
+    handDriverRef.current?.update(hands),
+  )
 
   const dragging = useRef(false)
   const last = useRef({ x: 0, y: 0 })
