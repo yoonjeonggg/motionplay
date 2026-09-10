@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AuthWidget } from './AuthWidget'
 import type { CameraStatus } from '../hooks/useCamera'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracking } from '../hooks/useHandTracking'
@@ -187,6 +188,8 @@ export function PlayScreen() {
           />
         )}
       </div>
+
+      <AuthWidget />
     </div>
   )
 }
