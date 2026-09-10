@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "setup:mediapipe": "node scripts/setup-mediapipe.mjs",
+    "predev": "npm run setup:mediapipe",
     "dev": "vite",
+    "prebuild": "npm run setup:mediapipe",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"

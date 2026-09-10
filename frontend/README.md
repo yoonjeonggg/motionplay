@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# MotionPlaying — frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + TypeScript + Vite. Webcam hand tracking via MediaPipe Tasks Vision.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev      # runs setup:mediapipe, then Vite dev server
+npm run build    # type-check + production build
+npm run lint     # oxlint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## MediaPipe assets
+
+`npm run setup:mediapipe` (auto-run by `predev` / `prebuild`) prepares
+`public/mediapipe/`:
+
+- `wasm/` — copied from the installed `@mediapipe/tasks-vision` package
+- `models/hand_landmarker.task` — downloaded once and cached
+
+The whole `public/mediapipe/` directory is git-ignored and regenerated on demand.
+
+## Structure
+
+```
+src/
+  vision/handTracker.ts     MediaPipe HandLandmarker wrapper (VIDEO mode)
+  hooks/useCamera.ts        getUserMedia webcam stream
+  hooks/useHandTracking.ts  detection loop + skeleton overlay rendering
+  components/PlayScreen.tsx  onboarding, camera viewport, tracking HUD
+```
+
+## Privacy
+
+All video and hand detection runs on-device. Nothing is uploaded.
