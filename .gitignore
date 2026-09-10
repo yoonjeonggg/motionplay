@@ -1,0 +1,47 @@
+# ─── Secrets / credentials ───────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# Keys, certs, tokens
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+*.jks
+secrets.*
+credentials.*
+serviceAccount*.json
+gcp-*.json
+aws.json
+.npmrc
+.netrc
+
+# ─── Claude Code / AI assistant ──────────────────────────
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+.aider*
+.cursor/
+.windsurf/
+
+# ─── OS / editor ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+
+# ─── Logs / temp ─────────────────────────────────────────
+*.log
+logs/
+tmp/
+.cache/
