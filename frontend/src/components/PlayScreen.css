@@ -1,124 +1,120 @@
 .stage {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background:
-    radial-gradient(120% 120% at 50% 0%, #1b1030 0%, #0a0a12 60%, #06060b 100%);
-  box-sizing: border-box;
-}
-
-.viewport {
-  position: relative;
-  width: min(100%, 1100px);
-  aspect-ratio: 16 / 9;
-  border-radius: 20px;
   overflow: hidden;
-  background: #000;
-  box-shadow:
-    0 30px 80px -20px rgba(120, 60, 255, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  background:
+    radial-gradient(120% 120% at 50% 0%, #1b1030 0%, #0a0a12 55%, #06060b 100%);
 }
 
-.camera-feed,
-.hand-overlay {
+.slime-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  transform: scaleX(-1); /* mirror: natural for a webcam */
+  touch-action: none;
+  cursor: grab;
 }
 
-.camera-feed {
-  object-fit: cover;
+.slime-canvas:active {
+  cursor: grabbing;
 }
 
-.camera-feed[data-active='false'] {
-  visibility: hidden;
-}
-
-.hand-overlay {
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #b9b4c7;
+  background: rgba(10, 10, 18, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
   pointer-events: none;
 }
 
-/* HUD ---------------------------------------------------------------- */
-.hud {
+/* Camera dock (top-right) ------------------------------------------------ */
+.camera-dock {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 16px;
+  right: 16px;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
 }
 
-.badge {
-  font-size: 13px;
+.pip {
+  position: relative;
+  width: 240px;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.6);
+}
+
+.pip[data-streaming='false'] {
+  display: none;
+}
+
+.pip-feed,
+.pip-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1);
+}
+
+.pip-feed {
+  object-fit: cover;
+}
+
+.pip-overlay {
+  pointer-events: none;
+}
+
+.pip-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 7px 12px;
+  padding: 4px 9px;
   border-radius: 999px;
   color: #fff;
-  backdrop-filter: blur(8px);
-  background: rgba(10, 10, 18, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(6, 6, 12, 0.62);
+  backdrop-filter: blur(6px);
 }
 
-.badge--ok {
+.pip-badge--ok {
   color: #86efac;
 }
-.badge--wait {
+.pip-badge--wait {
   color: #fcd34d;
 }
-.badge--error {
+.pip-badge--error {
   color: #fca5a5;
 }
 
-/* Onboarding ------------------------------------------------------------ */
-.onboarding {
-  position: absolute;
-  inset: 0;
+/* Hand-control prompt --------------------------------------------------- */
+.hand-prompt {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 32px;
-  text-align: center;
-  color: #e8e5f0;
-  background: rgba(6, 6, 12, 0.72);
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 240px;
+  text-align: right;
 }
 
-.onboarding h1 {
-  margin: 0;
-  font-size: clamp(28px, 5vw, 44px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  background: linear-gradient(120deg, #c084fc, #38bdf8);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.tagline {
-  margin: 0;
-  max-width: 32ch;
-  color: #b9b4c7;
-}
-
-.guide {
-  margin: 0;
-  padding: 0 0 0 1.1em;
-  max-width: 40ch;
-  text-align: left;
+.hand-prompt-btn {
   font-size: 14px;
-  line-height: 1.7;
-  color: #9d98ac;
-}
-
-.start-btn {
-  margin-top: 4px;
-  font-size: 15px;
   font-weight: 700;
-  padding: 12px 28px;
+  padding: 10px 18px;
   border-radius: 999px;
   border: 0;
   cursor: pointer;
@@ -127,18 +123,25 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.start-btn:hover:not(:disabled) {
+.hand-prompt-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 10px 30px -8px rgba(139, 92, 246, 0.7);
 }
 
-.start-btn:disabled {
+.hand-prompt-btn:disabled {
   opacity: 0.6;
   cursor: progress;
 }
 
-.onboarding-error {
+.hand-prompt-note {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #8b8699;
+}
+
+.hand-prompt-error {
+  margin: 0;
+  font-size: 11px;
   color: #fca5a5;
 }
