@@ -57,6 +57,13 @@ const DEFAULTS: Required<DriverConfig> = {
   gripOff: 1.45,
 }
 
+/** Per-hand gesture readout, surfaced for on-screen feedback. */
+export type HandGesture = {
+  gripping: boolean
+  openness: number
+  pinch: number
+}
+
 /**
  * Turns per-frame hand landmarks into slime interactions: a closed fist grabs
  * and drags the slime, an open moving palm presses it. Keeps a little state per
@@ -65,6 +72,7 @@ const DEFAULTS: Required<DriverConfig> = {
 export function createHandSlimeDriver(
   getController: () => SlimeController | null,
   config: DriverConfig = {},
+  onGestures?: (gestures: HandGesture[]) => void,
 ) {
   const cfg = { ...DEFAULTS, ...config }
   const states = new Map<number, HandState>()
@@ -80,15 +88,22 @@ export function createHandSlimeDriver(
 
     if (hands.length === 0) {
       if (states.size > 0) reset()
+      onGestures?.([])
       return
     }
 
     const { w, h } = ctrl.size()
     let anyGripping = false
+    const gestures: HandGesture[] = []
 
     hands.forEach((lm, i) => {
       const sample = analyzeHand(lm)
       if (!sample) return
+      gestures.push({
+        gripping: false,
+        openness: sample.openness,
+        pinch: sample.pinch,
+      })
 
       // Mirror x to match the selfie-view the user sees.
       const cur: Vec2 = { x: (1 - sample.palm.x) * w, y: sample.palm.y * h }
@@ -99,6 +114,7 @@ export function createHandSlimeDriver(
       else if (state.gripping && sample.openness > cfg.gripOff) {
         state.gripping = false
       }
+      gestures[gestures.length - 1].gripping = state.gripping
 
       const delta = {
         x: cur.x - state.prevPalm.x,
@@ -124,6 +140,8 @@ export function createHandSlimeDriver(
       if (key >= hands.length) states.delete(key)
     }
     if (!anyGripping) ctrl.release()
+
+    onGestures?.(gestures)
   }
 
   return { update, reset }

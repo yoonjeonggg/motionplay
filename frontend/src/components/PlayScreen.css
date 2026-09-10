@@ -19,11 +19,18 @@
   cursor: grabbing;
 }
 
-.hint {
+.dock-bottom {
   position: absolute;
   left: 50%;
-  bottom: 28px;
+  bottom: 24px;
   transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.hint {
   margin: 0;
   padding: 8px 16px;
   font-size: 13px;
@@ -33,6 +40,22 @@
   border-radius: 999px;
   backdrop-filter: blur(8px);
   pointer-events: none;
+}
+
+.reset-btn {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8e5f0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 /* Camera dock (top-right) ------------------------------------------------ */
@@ -99,6 +122,50 @@
 }
 .pip-badge--error {
   color: #fca5a5;
+}
+
+/* Gesture feedback strip ---------------------------------------------- */
+.gesture-strip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.gesture-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(6, 6, 12, 0.6);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.gesture-chip[data-grip='true'] {
+  border-color: rgba(134, 239, 172, 0.7);
+}
+
+.gesture-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.gesture-bar {
+  width: 34px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.gesture-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #86efac);
+  transition: width 0.12s linear;
 }
 
 /* Hand-control prompt --------------------------------------------------- */

@@ -7,6 +7,8 @@ export type SlimeController = {
   grab: (pos: Vec2, delta: Vec2, radius: number) => void
   press: (pos: Vec2, radius: number, strength: number) => void
   release: () => void
+  /** Snap the slime back into a blob at the centre. */
+  reset: () => void
   center: () => Vec2
   /** Canvas size in CSS pixels. */
   size: () => { w: number; h: number }
@@ -100,6 +102,7 @@ export function useSlime(): UseSlimeResult {
           grab: (pos, delta, radius) => blob.grab(pos, delta, radius),
           press: (pos, radius, strength) => blob.press(pos, radius, strength),
           release: () => blob.releaseGrab(),
+          reset: () => blob.reset({ x: view.w / 2, y: view.h * 0.5 }),
           center: () => blob.center(),
           size: () => ({ ...view }),
         }

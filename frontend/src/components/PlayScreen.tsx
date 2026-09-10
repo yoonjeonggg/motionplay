@@ -1,20 +1,33 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { CameraStatus } from '../hooks/useCamera'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracking } from '../hooks/useHandTracking'
-import { createHandSlimeDriver } from '../slime/handControl'
+import { createHandSlimeDriver, type HandGesture } from '../slime/handControl'
 import { useSlime } from '../slime/useSlime'
 import './PlayScreen.css'
 
 const GRAB_RADIUS = 92
+const GESTURE_UI_INTERVAL = 120
 
 export function PlayScreen() {
   const { canvasRef, controller } = useSlime()
 
+  const [gestures, setGestures] = useState<HandGesture[]>([])
+  const lastGestureUi = useRef(0)
+
   const handDriverRef = useRef<ReturnType<typeof createHandSlimeDriver> | null>(
     null,
   )
-  handDriverRef.current ??= createHandSlimeDriver(() => controller.current)
+  handDriverRef.current ??= createHandSlimeDriver(
+    () => controller.current,
+    {},
+    (next) => {
+      const now = performance.now()
+      if (now - lastGestureUi.current < GESTURE_UI_INTERVAL) return
+      lastGestureUi.current = now
+      setGestures(next)
+    },
+  )
 
   const { videoRef, status: cameraStatus, error: cameraError, start } = useCamera()
   const streaming = cameraStatus === 'streaming'
@@ -69,19 +82,35 @@ export function PlayScreen() {
         onPointerCancel={endDrag}
       />
 
-      <p className="hint">슬라임을 드래그해 누르고 늘려 보세요</p>
+      <div className="dock-bottom">
+        <p className="hint">
+          {streaming
+            ? '주먹을 쥐어 잡고, 편 손으로 밀어 보세요'
+            : '슬라임을 드래그해 누르고 늘려 보세요'}
+        </p>
+        <button
+          type="button"
+          className="reset-btn"
+          onClick={() => controller.current?.reset()}
+        >
+          다시 뭉치기
+        </button>
+      </div>
 
       <div className="camera-dock">
         <div className="pip" data-streaming={streaming}>
           <video ref={videoRef} className="pip-feed" playsInline muted />
           <canvas ref={overlayRef} className="pip-overlay" />
           {streaming && (
-            <TrackerBadge
-              status={trackerStatus}
-              error={trackerError}
-              handCount={handCount}
-              fps={fps}
-            />
+            <>
+              <TrackerBadge
+                status={trackerStatus}
+                error={trackerError}
+                handCount={handCount}
+                fps={fps}
+              />
+              <GestureStrip gestures={gestures} />
+            </>
           )}
         </div>
 
@@ -120,6 +149,26 @@ function TrackerBadge({
     tone = 'ok'
   }
   return <span className={`pip-badge pip-badge--${tone}`}>{text}</span>
+}
+
+function GestureStrip({ gestures }: { gestures: HandGesture[] }) {
+  if (gestures.length === 0) return null
+  return (
+    <div className="gesture-strip">
+      {gestures.map((g, i) => {
+        // openness ~0.7 (fist) .. ~2.2 (open) → 0..1 bar
+        const level = Math.max(0, Math.min(1, (g.openness - 0.7) / 1.5))
+        return (
+          <div key={i} className="gesture-chip" data-grip={g.gripping}>
+            <span className="gesture-icon">{g.gripping ? '✊' : '✋'}</span>
+            <span className="gesture-bar">
+              <span className="gesture-bar-fill" style={{ width: `${level * 100}%` }} />
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function HandControlPrompt({
