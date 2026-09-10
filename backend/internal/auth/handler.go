@@ -33,7 +33,7 @@ func NewHandler(users UserStore, tokens *TokenIssuer) *Handler {
 func (h *Handler) Routes(r *gin.RouterGroup) {
 	r.POST("/signup", h.signup)
 	r.POST("/login", h.login)
-	r.GET("/me", h.Middleware(), h.me)
+	r.GET("/me", Middleware(h.tokens), h.me)
 }
 
 type credentials struct {

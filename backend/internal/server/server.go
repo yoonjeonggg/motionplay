@@ -10,6 +10,7 @@ import (
 
 	"motionplay/backend/internal/auth"
 	"motionplay/backend/internal/config"
+	"motionplay/backend/internal/creation"
 	"motionplay/backend/internal/user"
 )
 
@@ -25,9 +26,11 @@ func New(cfg config.Config, db *gorm.DB) *gin.Engine {
 	users := user.NewRepository(db)
 	tokens := auth.NewTokenIssuer(cfg.JWTSecret, cfg.JWTTTL)
 	authHandler := auth.NewHandler(users, tokens)
+	creationHandler := creation.NewHandler(creation.NewRepository(db))
 
 	api := r.Group("/api")
 	authHandler.Routes(api.Group("/auth"))
+	creationHandler.Routes(api.Group("/creations"), auth.Middleware(tokens))
 
 	return r
 }

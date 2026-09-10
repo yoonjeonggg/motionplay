@@ -25,12 +25,20 @@ Needs a reachable PostgreSQL. `go test ./...` runs without one.
 
 ### API
 
-| Method | Path              | Auth   | Purpose                     |
-|--------|-------------------|--------|-----------------------------|
-| GET    | `/healthz`        | –      | liveness                    |
-| POST   | `/api/auth/signup`| –      | create account, returns JWT |
-| POST   | `/api/auth/login` | –      | returns JWT                 |
-| GET    | `/api/auth/me`    | Bearer | current account             |
+| Method | Path                   | Auth   | Purpose                     |
+|--------|------------------------|--------|-----------------------------|
+| GET    | `/healthz`             | –      | liveness                    |
+| POST   | `/api/auth/signup`     | –      | create account, returns JWT |
+| POST   | `/api/auth/login`      | –      | returns JWT                 |
+| GET    | `/api/auth/me`         | Bearer | current account             |
+| GET    | `/api/creations`       | Bearer | list your saved slimes      |
+| POST   | `/api/creations`       | Bearer | save a slime                |
+| GET    | `/api/creations/:id`   | Bearer | one saved slime (owner)     |
+| PUT    | `/api/creations/:id`   | Bearer | update (owner)              |
+| DELETE | `/api/creations/:id`   | Bearer | delete (owner)              |
+
+A creation is `{ title, color, softness, toppings: [{ kind, x, y }] }`, where
+`x`/`y` are normalised 0..1 to the slime canvas.
 
 ## Notes
 - Secrets live in `.env` files and are git-ignored. Use `.env.example` as the template.
