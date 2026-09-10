@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Generated / downloaded MediaPipe assets (see scripts/setup-mediapipe.mjs)
+public/mediapipe
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
