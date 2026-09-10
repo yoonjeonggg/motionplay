@@ -55,20 +55,36 @@ export class VerletBlob {
     this.opts = { ...DEFAULTS, ...options }
     this.bounds = bounds
 
-    const { cx, cy, radius, points } = this.opts
+    const { radius, points } = this.opts
     for (let i = 0; i < points; i++) {
-      const a = (i / points) * Math.PI * 2
-      const x = cx + Math.cos(a) * radius
-      const y = cy + Math.sin(a) * radius
-      this.points.push({ x, y, px: x, py: y, pinned: false })
+      this.points.push({ x: 0, y: 0, px: 0, py: 0, pinned: false })
     }
     const chord = 2 * radius * Math.sin(Math.PI / points)
     this.restLength = chord
     this.restArea = Math.PI * radius * radius
+    this.reset()
   }
 
   setBounds(w: number, h: number) {
     this.bounds = { w, h }
+  }
+
+  /** Snap every point back to the starting circle. */
+  reset(center?: Vec2) {
+    const { points, radius } = this.opts
+    const cx = center?.x ?? this.opts.cx
+    const cy = center?.y ?? this.opts.cy
+    for (let i = 0; i < points; i++) {
+      const a = (i / points) * Math.PI * 2
+      const x = cx + Math.cos(a) * radius
+      const y = cy + Math.sin(a) * radius
+      const p = this.points[i]
+      p.x = x
+      p.y = y
+      p.px = x
+      p.py = y
+      p.pinned = false
+    }
   }
 
   /** Centroid of the blob. */
