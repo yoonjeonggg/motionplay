@@ -51,9 +51,27 @@ export class ToppingField {
     return { x: a.x + t.offset.x, y: a.y + t.offset.y }
   }
 
+  /** Current toppings as canvas-normalised (0..1) specs, for persistence. */
+  snapshot(blob: VerletBlob, w: number, h: number): ToppingSpec[] {
+    return this.list.map((t) => {
+      const p = this.positionOf(t, blob)
+      return { kind: t.kind, x: clamp01(p.x / w), y: clamp01(p.y / h) }
+    })
+  }
+
   clear() {
     this.list.length = 0
   }
+}
+
+export type ToppingSpec = { kind: ToppingKind; x: number; y: number }
+
+function clamp01(n: number): number {
+  return n < 0 ? 0 : n > 1 ? 1 : n
+}
+
+export function isToppingKind(v: string): v is ToppingKind {
+  return (TOPPING_KINDS as readonly string[]).includes(v)
 }
 
 /** Draw one topping shape onto a Graphics at (x, y). Caller sets no transform. */

@@ -90,11 +90,19 @@
   border-color: #c4b5fd;
 }
 
-/* Slime customization panel (top-left) --------------------------------- */
-.slime-panel {
+/* Left dock: slime controls + gallery, stacked (top-left) -------------- */
+.left-dock {
   position: absolute;
   top: 16px;
   left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+
+.slime-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;

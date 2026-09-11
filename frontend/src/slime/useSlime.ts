@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Application, BlurFilter, Container, Graphics } from 'pixi.js'
 import {
   drawTopping,
+  isToppingKind,
   type ToppingKind,
   TOPPING_COLORS,
   ToppingField,
+  type ToppingSpec,
 } from './toppings'
 import { type Vec2, VerletBlob } from './verletBlob'
 
@@ -24,6 +26,10 @@ export type SlimeController = {
   clearToppings: () => void
   /** Show/hide a topping being carried toward the slime (null clears it). */
   setHeldTopping: (kind: ToppingKind | null, pos: Vec2 | null) => void
+  /** Current toppings as normalised (0..1) specs. */
+  snapshotToppings: () => ToppingSpec[]
+  /** Replace all toppings from normalised specs (e.g. loading a saved slime). */
+  loadToppings: (specs: { kind: string; x: number; y: number }[]) => void
   center: () => Vec2
   /** Canvas size in CSS pixels. */
   size: () => { w: number; h: number }
@@ -159,6 +165,14 @@ export function useSlime(): UseSlimeResult {
           clearToppings: () => field.clear(),
           setHeldTopping: (kind, pos) => {
             held = kind && pos ? { kind, pos } : null
+          },
+          snapshotToppings: () => field.snapshot(blob, view.w, view.h),
+          loadToppings: (specs) => {
+            field.clear()
+            for (const s of specs) {
+              if (!isToppingKind(s.kind)) continue
+              field.add(s.kind, { x: s.x * view.w, y: s.y * view.h }, blob)
+            }
           },
           center: () => blob.center(),
           size: () => ({ ...view }),

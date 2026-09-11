@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { AuthWidget } from './AuthWidget'
+import { GalleryPanel } from './GalleryPanel'
 import type { CameraStatus } from '../hooks/useCamera'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracking } from '../hooks/useHandTracking'
 import { createHandSlimeDriver, type HandGesture } from '../slime/handControl'
 import { type ToppingKind, TOPPING_KINDS } from '../slime/toppings'
 import { useSlime } from '../slime/useSlime'
+import type { Creation, CreationInput } from '../api/client'
 import './PlayScreen.css'
 
 const GRAB_RADIUS = 92
@@ -18,6 +20,7 @@ const SLIME_COLORS = [
   { name: '퍼플', rgb: 0xc4b5fd, css: '#c4b5fd' },
   { name: '옐로', rgb: 0xfde68a, css: '#fde68a' },
 ]
+const DEFAULT_COLOR = SLIME_COLORS[0].rgb
 const DEFAULT_SOFTNESS = 0.4
 
 const TOPPING_LABEL: Record<ToppingKind, string> = {
@@ -34,16 +37,29 @@ export function PlayScreen() {
   const [gestures, setGestures] = useState<HandGesture[]>([])
   const lastGestureUi = useRef(0)
 
-  const [colorIndex, setColorIndex] = useState(0)
+  const [color, setColor] = useState(DEFAULT_COLOR)
   const [softness, setSoftness] = useState(DEFAULT_SOFTNESS)
   const [mode, setMode] = useState<Mode>('squish')
   const [toppingKind, setToppingKind] = useState<ToppingKind>(TOPPING_KINDS[0])
 
   useEffect(() => {
     if (!ready) return
-    controller.current?.setColor(SLIME_COLORS[colorIndex].rgb)
+    controller.current?.setColor(color)
     controller.current?.setSoftness(softness)
-  }, [ready, colorIndex, softness, controller])
+  }, [ready, color, softness, controller])
+
+  const currentCreation = (): CreationInput => ({
+    title: '',
+    color,
+    softness,
+    toppings: controller.current?.snapshotToppings() ?? [],
+  })
+
+  const loadCreation = (c: Creation) => {
+    setColor(c.color)
+    setSoftness(c.softness)
+    controller.current?.loadToppings(c.toppings)
+  }
 
   const handDriverRef = useRef<ReturnType<typeof createHandSlimeDriver> | null>(
     null,
@@ -132,16 +148,19 @@ export function PlayScreen() {
         onPointerLeave={onPointerLeave}
       />
 
-      <SlimePanel
-        colorIndex={colorIndex}
-        softness={softness}
-        mode={mode}
-        toppingKind={toppingKind}
-        onColor={setColorIndex}
-        onSoftness={setSoftness}
-        onMode={setMode}
-        onToppingKind={setToppingKind}
-      />
+      <div className="left-dock">
+        <SlimePanel
+          color={color}
+          softness={softness}
+          mode={mode}
+          toppingKind={toppingKind}
+          onColor={setColor}
+          onSoftness={setSoftness}
+          onMode={setMode}
+          onToppingKind={setToppingKind}
+        />
+        <GalleryPanel getCurrent={currentCreation} onLoad={loadCreation} />
+      </div>
 
       <div className="dock-bottom">
         <p className="hint">{hintText(streaming, mode)}</p>
@@ -206,7 +225,7 @@ function hintText(streaming: boolean, mode: Mode): string {
 }
 
 function SlimePanel({
-  colorIndex,
+  color,
   softness,
   mode,
   toppingKind,
@@ -215,11 +234,11 @@ function SlimePanel({
   onMode,
   onToppingKind,
 }: {
-  colorIndex: number
+  color: number
   softness: number
   mode: Mode
   toppingKind: ToppingKind
-  onColor: (i: number) => void
+  onColor: (rgb: number) => void
   onSoftness: (v: number) => void
   onMode: (m: Mode) => void
   onToppingKind: (k: ToppingKind) => void
@@ -229,16 +248,16 @@ function SlimePanel({
       <div className="panel-row">
         <span className="panel-label">색상</span>
         <div className="swatches">
-          {SLIME_COLORS.map((c, i) => (
+          {SLIME_COLORS.map((c) => (
             <button
               key={c.name}
               type="button"
               className="swatch"
               style={{ background: c.css }}
-              data-active={i === colorIndex}
+              data-active={c.rgb === color}
               aria-label={c.name}
-              aria-pressed={i === colorIndex}
-              onClick={() => onColor(i)}
+              aria-pressed={c.rgb === color}
+              onClick={() => onColor(c.rgb)}
             />
           ))}
         </div>
