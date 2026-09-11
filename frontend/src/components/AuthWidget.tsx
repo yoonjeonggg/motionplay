@@ -15,7 +15,7 @@ export function AuthWidget() {
 
   const busy = status === 'loading'
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     const ok =
       mode === 'login'
