@@ -12,10 +12,11 @@ type Props = {
 
 export function GalleryPanel({ getCurrent, onLoad }: Props) {
   const authStatus = useAuthStore((s) => s.status)
-  const { items, status, error, refresh, save, remove, clear } =
+  const { items, status, error, refresh, save, remove, share, clear } =
     useCreationsStore()
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
 
   const authed = authStatus === 'authed'
 
@@ -34,6 +35,20 @@ export function GalleryPanel({ getCurrent, onLoad }: Props) {
     const ok = await save({ ...getCurrent(), title: name })
     setSaving(false)
     if (ok) setTitle('')
+  }
+
+  const onShare = async (c: Creation) => {
+    const slug = c.shareSlug ?? (await share(c.id))
+    if (!slug) return
+    const url = `${window.location.origin}${window.location.pathname}?share=${slug}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      window.prompt('링크를 복사하세요', url)
+      return
+    }
+    setCopiedId(c.id)
+    setTimeout(() => setCopiedId((cur) => (cur === c.id ? null : cur)), 1500)
   }
 
   return (
@@ -65,6 +80,9 @@ export function GalleryPanel({ getCurrent, onLoad }: Props) {
             </span>
             <button type="button" onClick={() => onLoad(c)}>
               불러오기
+            </button>
+            <button type="button" onClick={() => void onShare(c)}>
+              {copiedId === c.id ? '복사됨!' : '공유'}
             </button>
             <button
               type="button"

@@ -7,7 +7,8 @@ import { useHandTracking } from '../hooks/useHandTracking'
 import { createHandSlimeDriver, type HandGesture } from '../slime/handControl'
 import { type ToppingKind, TOPPING_KINDS } from '../slime/toppings'
 import { useSlime } from '../slime/useSlime'
-import type { Creation, CreationInput } from '../api/client'
+import { api } from '../api/client'
+import type { Creation, CreationInput, SharedCreation } from '../api/client'
 import './PlayScreen.css'
 
 const GRAB_RADIUS = 92
@@ -60,6 +61,32 @@ export function PlayScreen() {
     setSoftness(c.softness)
     controller.current?.loadToppings(c.toppings)
   }
+
+  const [sharedTitle, setSharedTitle] = useState<string | null>(null)
+  const pendingShared = useRef<SharedCreation | null>(null)
+
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get('share')
+    if (!slug) return
+    api
+      .getShared(slug)
+      .then(({ creation }) => {
+        pendingShared.current = creation
+        setSharedTitle(creation.title)
+      })
+      .catch(() => {
+        /* unknown/expired link: just show the default slime */
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!ready || !pendingShared.current) return
+    const c = pendingShared.current
+    pendingShared.current = null
+    setColor(c.color)
+    setSoftness(c.softness)
+    controller.current?.loadToppings(c.toppings)
+  }, [ready, controller])
 
   const handDriverRef = useRef<ReturnType<typeof createHandSlimeDriver> | null>(
     null,
@@ -135,8 +162,24 @@ export function PlayScreen() {
     if (mode === 'topping') controller.current?.setHeldTopping(null, null)
   }
 
+  const dismissShared = () => {
+    setSharedTitle(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('share')
+    window.history.replaceState({}, '', url)
+  }
+
   return (
     <div className="stage">
+      {sharedTitle && (
+        <div className="share-banner">
+          <span>✨ 공유된 슬라임 &lsquo;{sharedTitle}&rsquo;을 불러왔어요</span>
+          <button type="button" onClick={dismissShared} aria-label="닫기">
+            ✕
+          </button>
+        </div>
+      )}
+
       <canvas
         ref={canvasRef}
         className="slime-canvas"

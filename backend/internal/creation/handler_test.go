@@ -3,6 +3,7 @@ package creation
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,6 +69,29 @@ func (f *fakeStore) Delete(id, userID uint) error {
 	return ErrNotFound
 }
 
+func (f *fakeStore) EnsureShareSlug(id, userID uint) (*Creation, error) {
+	c, ok := f.items[id]
+	if !ok || c.UserID != userID {
+		return nil, ErrNotFound
+	}
+	if c.ShareSlug == nil {
+		slug := fmt.Sprintf("slug-%d", id)
+		c.ShareSlug = &slug
+	}
+	copy := *c
+	return &copy, nil
+}
+
+func (f *fakeStore) ByShareSlug(slug string) (*Creation, error) {
+	for _, c := range f.items {
+		if c.ShareSlug != nil && *c.ShareSlug == slug {
+			copy := *c
+			return &copy, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 func newTestRig(t *testing.T) (*gin.Engine, func(userID uint) string) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -75,6 +99,7 @@ func newTestRig(t *testing.T) (*gin.Engine, func(userID uint) string) {
 	h := NewHandler(newFakeStore())
 	r := gin.New()
 	h.Routes(r.Group("/creations"), auth.Middleware(issuer))
+	h.PublicRoutes(r.Group("/share"))
 	return r, func(userID uint) string {
 		tok, err := issuer.Issue(userID)
 		if err != nil {
@@ -154,6 +179,67 @@ func TestCreationCRUDAndOwnership(t *testing.T) {
 		t.Fatalf("get after delete %d", rec.Code)
 	}
 	_ = id
+}
+
+func TestCreationShareLink(t *testing.T) {
+	r, tokenFor := newTestRig(t)
+	alice := tokenFor(1)
+	bob := tokenFor(2)
+
+	body := gin.H{"title": "Shared Goo", "color": 0x7cf29c, "softness": 0.5}
+	rec := req(t, r, http.MethodPost, "/creations", alice, body)
+	var created struct {
+		Creation Creation `json:"creation"`
+	}
+	mustDecode(t, rec, &created)
+	id := created.Creation.ID
+
+	// bob cannot mint a share link for alice's creation
+	if rec := req(t, r, http.MethodPost, fmt.Sprintf("/creations/%d/share", id), bob, nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("bob share: %d", rec.Code)
+	}
+
+	rec = req(t, r, http.MethodPost, fmt.Sprintf("/creations/%d/share", id), alice, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("share status %d: %s", rec.Code, rec.Body)
+	}
+	var shared struct {
+		ShareSlug string `json:"shareSlug"`
+	}
+	mustDecode(t, rec, &shared)
+	if shared.ShareSlug == "" {
+		t.Fatalf("expected non-empty share slug")
+	}
+
+	// sharing again returns the same slug
+	rec2 := req(t, r, http.MethodPost, fmt.Sprintf("/creations/%d/share", id), alice, nil)
+	var shared2 struct {
+		ShareSlug string `json:"shareSlug"`
+	}
+	mustDecode(t, rec2, &shared2)
+	if shared2.ShareSlug != shared.ShareSlug {
+		t.Fatalf("share slug changed: %s vs %s", shared.ShareSlug, shared2.ShareSlug)
+	}
+
+	// anyone can fetch it, unauthenticated, without owner info leaking
+	pub := req(t, r, http.MethodGet, "/share/"+shared.ShareSlug, "", nil)
+	if pub.Code != http.StatusOK {
+		t.Fatalf("public get status %d: %s", pub.Code, pub.Body)
+	}
+	var view struct {
+		Creation SharedView `json:"creation"`
+	}
+	mustDecode(t, pub, &view)
+	if view.Creation.Title != "Shared Goo" {
+		t.Fatalf("unexpected shared view: %+v", view.Creation)
+	}
+	if bytes.Contains(pub.Body.Bytes(), []byte("userId")) {
+		t.Fatalf("shared view leaks owner: %s", pub.Body)
+	}
+
+	if rec := req(t, r, http.MethodGet, "/share/does-not-exist", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown slug status %d", rec.Code)
+	}
 }
 
 func TestCreationRequiresAuth(t *testing.T) {

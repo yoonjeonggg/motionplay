@@ -19,6 +19,8 @@ type Store interface {
 	ByIDForUser(id, userID uint) (*Creation, error)
 	Update(*Creation) error
 	Delete(id, userID uint) error
+	EnsureShareSlug(id, userID uint) (*Creation, error)
+	ByShareSlug(slug string) (*Creation, error)
 }
 
 type Handler struct {
@@ -38,6 +40,12 @@ func (h *Handler) Routes(r *gin.RouterGroup, authMW gin.HandlerFunc) {
 	r.GET("/:id", h.get)
 	r.PUT("/:id", h.update)
 	r.DELETE("/:id", h.remove)
+	r.POST("/:id/share", h.share)
+}
+
+// PublicRoutes registers the unauthenticated share-link lookup.
+func (h *Handler) PublicRoutes(r *gin.RouterGroup) {
+	r.GET("/:slug", h.getShared)
 }
 
 const maxToppings = 200
@@ -164,6 +172,38 @@ func (h *Handler) remove(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) share(c *gin.Context) {
+	userID, _ := auth.UserID(c)
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	item, err := h.store.EnsureShareSlug(id, userID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpx.Error(c, http.StatusNotFound, "creation not found")
+			return
+		}
+		httpx.Error(c, http.StatusInternalServerError, "could not create share link")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"shareSlug": *item.ShareSlug})
+}
+
+func (h *Handler) getShared(c *gin.Context) {
+	item, err := h.store.ByShareSlug(c.Param("slug"))
+	if err != nil {
+		httpx.Error(c, http.StatusNotFound, "shared creation not found")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"creation": SharedView{
+		Title:    item.Title,
+		Color:    item.Color,
+		Softness: item.Softness,
+		Toppings: item.Toppings,
+	}})
 }
 
 func parseID(c *gin.Context) (uint, bool) {

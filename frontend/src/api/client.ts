@@ -16,11 +16,19 @@ export type Creation = {
   color: number
   softness: number
   toppings: ToppingSpec[]
+  shareSlug?: string
   createdAt: string
   updatedAt: string
 }
 
 export type CreationInput = {
+  title: string
+  color: number
+  softness: number
+  toppings: ToppingSpec[]
+}
+
+export type SharedCreation = {
   title: string
   color: number
   softness: number
@@ -128,6 +136,20 @@ export function createApiClient({ baseUrl, storage, fetchImpl }: ClientOptions) 
       ),
     deleteCreation: (id: number) =>
       request<void>('DELETE', `/api/creations/${id}`, undefined, true),
+    shareCreation: (id: number) =>
+      request<{ shareSlug: string }>(
+        'POST',
+        `/api/creations/${id}/share`,
+        undefined,
+        true,
+      ),
+    getShared: (slug: string) =>
+      request<{ creation: SharedCreation }>(
+        'GET',
+        `/api/share/${slug}`,
+        undefined,
+        false,
+      ),
   }
 }
 

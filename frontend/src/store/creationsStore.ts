@@ -16,6 +16,7 @@ export type CreationsState = {
   refresh: () => Promise<void>
   save: (input: CreationInput) => Promise<boolean>
   remove: (id: number) => Promise<void>
+  share: (id: number) => Promise<string | null>
   clear: () => void
 }
 
@@ -58,6 +59,19 @@ export function createCreationsStore(api: ApiClient) {
         await api.deleteCreation(id)
       } catch (err) {
         set({ items: before, error: message(err) })
+      }
+    },
+
+    share: async (id) => {
+      try {
+        const { shareSlug } = await api.shareCreation(id)
+        set({
+          items: get().items.map((c) => (c.id === id ? { ...c, shareSlug } : c)),
+        })
+        return shareSlug
+      } catch (err) {
+        set({ error: message(err) })
+        return null
       }
     },
 

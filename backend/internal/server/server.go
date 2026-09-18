@@ -31,6 +31,7 @@ func New(cfg config.Config, db *gorm.DB) *gin.Engine {
 	api := r.Group("/api")
 	authHandler.Routes(api.Group("/auth"))
 	creationHandler.Routes(api.Group("/creations"), auth.Middleware(tokens))
+	creationHandler.PublicRoutes(api.Group("/share"))
 
 	return r
 }
@@ -41,6 +42,7 @@ func cors() gin.HandlerFunc {
 		"http://localhost:5173": true,
 		"http://localhost:5174": true,
 		"http://localhost:5175": true,
+		"http://localhost:5176": true,
 	}
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
