@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Application, BlurFilter, Container, Graphics } from 'pixi.js'
+import { applyPalette, GIFEncoder, quantize } from 'gifenc'
 import {
   drawTopping,
   isToppingKind,
@@ -35,6 +36,18 @@ export type SlimeController = {
   size: () => { w: number; h: number }
   /** Download the current slime as a transparent PNG. */
   screenshot: (filename?: string) => void
+  /**
+   * Record a few seconds of the current slime and download it as a GIF.
+   * Resolves to false if a recording is already in progress.
+   */
+  recordGif: (durationMs?: number, fps?: number) => Promise<boolean>
+}
+
+const GIF_BACKGROUND = '#0a0a12'
+const GIF_MAX_COLORS = 128
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 type UseSlimeResult = {
@@ -77,6 +90,40 @@ export function useSlime(): UseSlimeResult {
     let color = DEFAULT_COLOR
     const field = new ToppingField()
     let held: { kind: ToppingKind; pos: Vec2 } | null = null
+    let gifBusy = false
+
+    const recordGif = async (durationMs = 2500, fps = 8): Promise<boolean> => {
+      if (gifBusy || disposed) return false
+      gifBusy = true
+      try {
+        const frameDelay = Math.round(1000 / fps)
+        const frameCount = Math.max(2, Math.round(durationMs / frameDelay))
+        const gif = GIFEncoder()
+        for (let i = 0; i < frameCount; i++) {
+          const { pixels, width, height } = app.renderer.extract.pixels({
+            target: app.stage,
+            resolution: 1,
+            clearColor: GIF_BACKGROUND,
+          })
+          const palette = quantize(pixels, GIF_MAX_COLORS)
+          const index = applyPalette(pixels, palette)
+          gif.writeFrame(index, width, height, { palette, delay: frameDelay })
+          if (disposed) return false
+          if (i < frameCount - 1) await sleep(frameDelay)
+        }
+        gif.finish()
+        const gifBlob = new Blob([gif.bytes()], { type: 'image/gif' })
+        const url = URL.createObjectURL(gifBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'motionplay-slime.gif'
+        a.click()
+        URL.revokeObjectURL(url)
+        return true
+      } finally {
+        gifBusy = false
+      }
+    }
 
     const tick = (dtMs: number) => {
       if (disposed) return
@@ -183,6 +230,7 @@ export function useSlime(): UseSlimeResult {
               target: app.stage,
               filename: filename ?? 'motionplay-slime.png',
             }),
+          recordGif,
         }
         setReady(true)
       })

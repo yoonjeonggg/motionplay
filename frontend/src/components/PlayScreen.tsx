@@ -62,6 +62,17 @@ export function PlayScreen() {
   const [mode, setMode] = useState<Mode>('squish')
   const [toppingKind, setToppingKind] = useState<ToppingKind>(TOPPING_KINDS[0])
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding())
+  const [recordingGif, setRecordingGif] = useState(false)
+
+  const onRecordGif = async () => {
+    if (recordingGif) return
+    setRecordingGif(true)
+    try {
+      await controller.current?.recordGif()
+    } finally {
+      setRecordingGif(false)
+    }
+  }
 
   const closeOnboarding = () => {
     markOnboardingSeen()
@@ -253,6 +264,14 @@ export function PlayScreen() {
             onClick={() => controller.current?.screenshot()}
           >
             스크린샷 저장
+          </button>
+          <button
+            type="button"
+            className="reset-btn"
+            onClick={onRecordGif}
+            disabled={recordingGif}
+          >
+            {recordingGif ? 'GIF 녹화 중…' : 'GIF 저장'}
           </button>
         </div>
       </div>
