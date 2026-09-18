@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AuthWidget } from './AuthWidget'
 import { GalleryPanel } from './GalleryPanel'
+import { Onboarding } from './Onboarding'
 import type { CameraStatus } from '../hooks/useCamera'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracking } from '../hooks/useHandTracking'
@@ -32,6 +33,24 @@ const TOPPING_LABEL: Record<ToppingKind, string> = {
 
 type Mode = 'squish' | 'topping'
 
+const ONBOARDING_KEY = 'mp.onboarding.seen'
+
+function hasSeenOnboarding(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(ONBOARDING_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markOnboardingSeen() {
+  try {
+    globalThis.localStorage?.setItem(ONBOARDING_KEY, '1')
+  } catch {
+    /* private mode / disabled storage */
+  }
+}
+
 export function PlayScreen() {
   const { canvasRef, controller, ready } = useSlime()
 
@@ -42,6 +61,12 @@ export function PlayScreen() {
   const [softness, setSoftness] = useState(DEFAULT_SOFTNESS)
   const [mode, setMode] = useState<Mode>('squish')
   const [toppingKind, setToppingKind] = useState<ToppingKind>(TOPPING_KINDS[0])
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding())
+
+  const closeOnboarding = () => {
+    markOnboardingSeen()
+    setShowOnboarding(false)
+  }
 
   useEffect(() => {
     if (!ready) return
@@ -252,6 +277,16 @@ export function PlayScreen() {
       </div>
 
       <AuthWidget />
+
+      <button
+        type="button"
+        className="tutorial-replay"
+        onClick={() => setShowOnboarding(true)}
+      >
+        튜토리얼 다시보기
+      </button>
+
+      {showOnboarding && <Onboarding onClose={closeOnboarding} />}
     </div>
   )
 }
