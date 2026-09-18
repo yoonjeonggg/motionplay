@@ -335,3 +335,87 @@
   font-size: 11px;
   color: #fca5a5;
 }
+
+/* Mobile / narrow viewport --------------------------------------------- */
+@media (max-width: 640px) {
+  .left-dock {
+    top: 12px;
+    left: 12px;
+    max-width: calc(56vw - 18px);
+  }
+
+  .softness {
+    width: 100%;
+  }
+
+  .panel-label {
+    width: 34px;
+    font-size: 11px;
+  }
+
+  .camera-dock {
+    top: 12px;
+    right: 12px;
+    max-width: calc(44vw - 18px);
+  }
+
+  .pip {
+    width: 100%;
+  }
+
+  .gesture-strip {
+    flex-wrap: wrap;
+  }
+
+  .hand-prompt {
+    max-width: calc(44vw - 18px);
+  }
+
+  .hand-prompt-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .hand-prompt-note {
+    display: none;
+  }
+
+  .share-banner {
+    top: auto;
+    bottom: 84px;
+    max-width: calc(100vw - 32px);
+    font-size: 12px;
+  }
+
+  .dock-bottom {
+    bottom: 14px;
+    max-width: calc(100vw - 24px);
+  }
+
+  .hint {
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .dock-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .reset-btn {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .auth-widget {
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .tutorial-replay {
+    left: 10px;
+    bottom: 10px;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}
