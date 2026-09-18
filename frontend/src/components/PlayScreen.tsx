@@ -247,6 +247,13 @@ export function PlayScreen() {
           >
             토핑 비우기
           </button>
+          <button
+            type="button"
+            className="reset-btn"
+            onClick={() => controller.current?.screenshot()}
+          >
+            스크린샷 저장
+          </button>
         </div>
       </div>
 

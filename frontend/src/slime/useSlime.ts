@@ -33,6 +33,8 @@ export type SlimeController = {
   center: () => Vec2
   /** Canvas size in CSS pixels. */
   size: () => { w: number; h: number }
+  /** Download the current slime as a transparent PNG. */
+  screenshot: (filename?: string) => void
 }
 
 type UseSlimeResult = {
@@ -176,6 +178,11 @@ export function useSlime(): UseSlimeResult {
           },
           center: () => blob.center(),
           size: () => ({ ...view }),
+          screenshot: (filename) =>
+            app.renderer.extract.download({
+              target: app.stage,
+              filename: filename ?? 'motionplay-slime.png',
+            }),
         }
         setReady(true)
       })
