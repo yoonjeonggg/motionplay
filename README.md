@@ -17,11 +17,15 @@ npm run dev
 ### backend
 ```bash
 cd backend
-cp .env.example .env      # set DATABASE_URL and JWT_SECRET
+cp .env.example .env         # set DATABASE_URL and JWT_SECRET
+docker compose up -d         # local PostgreSQL on :5433 (see docker-compose.yml)
 go run ./cmd/server
 ```
 
-Needs a reachable PostgreSQL. `go test ./...` runs without one.
+Needs a reachable PostgreSQL. The bundled `docker-compose.yml` maps it to
+`localhost:5433` to avoid clashing with a system Postgres on 5432; the
+`.env.example` `DATABASE_URL` already points there. `go test ./...` runs
+without a database.
 
 ### API
 
