@@ -242,7 +242,12 @@ export function useSlime(): UseSlimeResult {
         if (!disposed) console.error('[slime] init failed', err)
       })
 
-    const onResize = () => {
+    // A resize drag can fire dozens of 'resize' events per second; renderer
+    // resize reallocates the render surface, so coalesce to one per frame
+    // instead of doing that work on every event.
+    let resizeRaf = 0
+    const applyResize = () => {
+      resizeRaf = 0
       const nw = host.clientWidth
       const nh = host.clientHeight
       if (!nw || !nh || disposed) return
@@ -251,10 +256,15 @@ export function useSlime(): UseSlimeResult {
       app.renderer?.resize(nw, nh)
       blob.setBounds(nw, nh)
     }
+    const onResize = () => {
+      if (resizeRaf) return
+      resizeRaf = requestAnimationFrame(applyResize)
+    }
     window.addEventListener('resize', onResize)
 
     return () => {
       disposed = true
+      if (resizeRaf) cancelAnimationFrame(resizeRaf)
       window.removeEventListener('resize', onResize)
       controller.current = null
       setReady(false)

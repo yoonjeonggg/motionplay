@@ -107,13 +107,29 @@ export class VerletBlob {
   }
 
   area(): number {
+    return this.areaAndCenter().area
+  }
+
+  /**
+   * area() and center() together in one pass over the points, instead of two.
+   * solvePressure() needs both every constraint iteration (12x/frame), so the
+   * saved traversal is the dominant cost of the physics step.
+   */
+  private areaAndCenter(): { area: number; center: Vec2 } {
     const pts = this.points
     let a = 0
+    let sx = 0
+    let sy = 0
     for (let i = 0; i < pts.length; i++) {
       const j = (i + 1) % pts.length
       a += pts[i].x * pts[j].y - pts[j].x * pts[i].y
+      sx += pts[i].x
+      sy += pts[i].y
     }
-    return Math.abs(a) / 2
+    return {
+      area: Math.abs(a) / 2,
+      center: { x: sx / pts.length, y: sy / pts.length },
+    }
   }
 
   /**
@@ -205,7 +221,7 @@ export class VerletBlob {
       const b = pts[(i + 1) % pts.length]
       const dx = b.x - a.x
       const dy = b.y - a.y
-      const dist = Math.hypot(dx, dy) || 1e-4
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1e-4
       let diff = ((dist - this.restLength) / dist) * 0.5 * k
       diff = Math.min(Math.max(diff, -0.5), 0.5)
       const ox = dx * diff
@@ -222,11 +238,11 @@ export class VerletBlob {
   }
 
   private solvePressure() {
-    const current = this.area() || 1
+    const { area, center: c } = this.areaAndCenter()
+    const current = area || 1
     const ratio = Math.min(Math.max(this.restArea / current, 0.5), 2)
     const push = (ratio - 1) * this.opts.pressure
     if (Math.abs(push) < 1e-4) return
-    const c = this.center()
     for (const p of this.points) {
       if (p.pinned) continue
       // Displacement is proportional to the vector from the centroid, so the
