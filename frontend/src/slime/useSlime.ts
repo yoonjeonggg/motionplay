@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Application, BlurFilter, Container, Graphics } from 'pixi.js'
-import { applyPalette, GIFEncoder, quantize } from 'gifenc'
+import { applyPalette, GIFEncoder, quantize, type Palette } from 'gifenc'
 import {
   drawTopping,
   isToppingKind,
@@ -44,7 +44,7 @@ export type SlimeController = {
 }
 
 const GIF_BACKGROUND = '#0a0a12'
-const GIF_MAX_COLORS = 128
+const GIF_MAX_COLORS = 256
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -99,13 +99,17 @@ export function useSlime(): UseSlimeResult {
         const frameDelay = Math.round(1000 / fps)
         const frameCount = Math.max(2, Math.round(durationMs / frameDelay))
         const gif = GIFEncoder()
+        // The slime's colour set barely changes frame to frame, so quantize
+        // once from the first frame and reuse it: re-quantizing every frame
+        // was the dominant cost of recording and made frame colours drift.
+        let palette: Palette | null = null
         for (let i = 0; i < frameCount; i++) {
           const { pixels, width, height } = app.renderer.extract.pixels({
             target: app.stage,
             resolution: 1,
             clearColor: GIF_BACKGROUND,
           })
-          const palette = quantize(pixels, GIF_MAX_COLORS)
+          palette ??= quantize(pixels, GIF_MAX_COLORS)
           const index = applyPalette(pixels, palette)
           gif.writeFrame(index, width, height, { palette, delay: frameDelay })
           if (disposed) return false
