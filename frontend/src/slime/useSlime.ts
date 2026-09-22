@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Application, BlurFilter, Container, Graphics } from 'pixi.js'
+import { Application, BlurFilter, Container, FillGradient, Graphics } from 'pixi.js'
 import { applyPalette, GIFEncoder, quantize, type Palette } from 'gifenc'
 import {
   drawTopping,
@@ -69,6 +69,46 @@ function softnessToParams(v: number) {
   }
 }
 
+/** Blend a 24-bit RGB colour toward `target` by `t` (0..1). */
+function mixColor(rgb: number, target: number, t: number): number {
+  const r1 = (rgb >> 16) & 0xff
+  const g1 = (rgb >> 8) & 0xff
+  const b1 = rgb & 0xff
+  const r2 = (target >> 16) & 0xff
+  const g2 = (target >> 8) & 0xff
+  const b2 = target & 0xff
+  const r = Math.round(r1 + (r2 - r1) * t)
+  const g = Math.round(g1 + (g2 - g1) * t)
+  const b = Math.round(b1 + (b2 - b1) * t)
+  return (r << 16) | (g << 8) | b
+}
+const lighten = (rgb: number, t: number) => mixColor(rgb, 0xffffff, t)
+const darken = (rgb: number, t: number) => mixColor(rgb, 0x000000, t)
+
+/**
+ * A radial gradient standing in for subsurface light scattering: bright near
+ * the (fixed) light corner, the base colour through the middle, deeper and
+ * more saturated at the rim — the cue that reads as "translucent gooey mass"
+ * instead of "flat-shaded ball". `textureSpace: 'local'` re-fits it to the
+ * shape's current bounds on every fill, so it tracks the blob as it wobbles
+ * without being rebuilt each frame.
+ */
+function createBodyGradient(rgb: number): FillGradient {
+  return new FillGradient({
+    type: 'radial',
+    center: { x: 0.34, y: 0.24 },
+    innerRadius: 0,
+    outerCenter: { x: 0.5, y: 0.56 },
+    outerRadius: 0.8,
+    colorStops: [
+      { offset: 0, color: lighten(rgb, 0.55) },
+      { offset: 0.45, color: rgb },
+      { offset: 1, color: darken(rgb, 0.4) },
+    ],
+    textureSpace: 'local',
+  })
+}
+
 export function useSlime(): UseSlimeResult {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const controller = useRef<SlimeController | null>(null)
@@ -88,6 +128,7 @@ export function useSlime(): UseSlimeResult {
       { w: view.w, h: view.h },
     )
     let color = DEFAULT_COLOR
+    let bodyGradient = createBodyGradient(color)
     const field = new ToppingField()
     let held: { kind: ToppingKind; pos: Vec2 } | null = null
     let gifBusy = false
@@ -135,11 +176,34 @@ export function useSlime(): UseSlimeResult {
       draw()
     }
 
+    let shadow: Graphics
     let body: Graphics
+    let socket: Graphics
     let gloss: Graphics
     let toppingGfx: Graphics
     const draw = () => {
       const pts = blob.points
+      let minX = Infinity
+      let maxX = -Infinity
+      let minY = Infinity
+      let maxY = -Infinity
+      for (const p of pts) {
+        if (p.x < minX) minX = p.x
+        if (p.x > maxX) maxX = p.x
+        if (p.y < minY) minY = p.y
+        if (p.y > maxY) maxY = p.y
+      }
+      const cx = (minX + maxX) / 2
+      const cy = (minY + maxY) / 2
+      const rx = (maxX - minX) / 2
+      const ry = (maxY - minY) / 2
+
+      // Soft contact shadow so the blob reads as resting on a surface
+      // instead of floating like a rendered-out ball.
+      shadow.clear()
+      shadow.ellipse(cx, maxY + ry * 0.18, rx * 0.85, ry * 0.22)
+      shadow.fill({ color: 0x000000, alpha: 0.32 })
+
       const last = pts[pts.length - 1]
       body.clear()
       body.moveTo((last.x + pts[0].x) / 2, (last.y + pts[0].y) / 2)
@@ -154,12 +218,30 @@ export function useSlime(): UseSlimeResult {
         )
       }
       body.closePath()
-      body.fill({ color, alpha: SLIME_ALPHA })
+      // Radial gradient (bright core -> deeper rim) instead of a flat fill:
+      // reads as translucent goo with some thickness rather than a painted ball.
+      body.fill({ fill: bodyGradient, alpha: SLIME_ALPHA })
 
-      const c = blob.center()
+      // Toppings sit in a soft, blurred "socket" — the same colour family as
+      // the body, folded around the topping's footprint — so they look
+      // pressed into the goo instead of stuck on top like stickers. This
+      // lives in the blurred layer, under the crisp topping icons.
+      socket.clear()
+      for (const t of field.list) {
+        const p = field.positionOf(t, blob)
+        socket.ellipse(p.x, p.y, t.size * 1.3, t.size * 1.05)
+        socket.fill({ color: darken(color, 0.3), alpha: 0.4 })
+      }
+
+      // Wide soft sheen plus a small tight highlight for a wet-glass shine,
+      // both scaled to the blob's current (squished) size.
+      const hlX = cx - rx * 0.32
+      const hlY = cy - ry * 0.42
       gloss.clear()
-      gloss.ellipse(c.x - 16, c.y - 24, 32, 19)
-      gloss.fill({ color: 0xffffff, alpha: 0.16 })
+      gloss.ellipse(hlX, hlY, rx * 0.42, ry * 0.28)
+      gloss.fill({ color: 0xffffff, alpha: 0.13 })
+      gloss.ellipse(hlX - rx * 0.06, hlY - ry * 0.08, rx * 0.1, ry * 0.07)
+      gloss.fill({ color: 0xffffff, alpha: 0.55 })
 
       toppingGfx.clear()
       for (const t of field.list) {
@@ -196,10 +278,14 @@ export function useSlime(): UseSlimeResult {
 
         const layer = new Container()
         layer.filters = [new BlurFilter({ strength: 5, quality: 2 })]
+        shadow = new Graphics()
         body = new Graphics()
+        socket = new Graphics()
         gloss = new Graphics()
-        layer.addChild(body, gloss)
-        // Toppings sit above the gooey blur layer so they stay crisp.
+        layer.addChild(shadow, body, socket, gloss)
+        // Toppings sit above the gooey blur layer so their icons stay crisp
+        // (the soft "socket" halo that makes them look embedded lives in
+        // `layer` above, so it gets blurred together with the body).
         toppingGfx = new Graphics()
         app.stage.addChild(layer, toppingGfx)
 
@@ -211,7 +297,10 @@ export function useSlime(): UseSlimeResult {
           release: () => blob.releaseGrab(),
           reset: () => blob.reset({ x: view.w / 2, y: view.h * 0.5 }),
           setColor: (rgb) => {
+            if (rgb === color) return
             color = rgb
+            bodyGradient.destroy()
+            bodyGradient = createBodyGradient(rgb)
           },
           setSoftness: (v) => blob.setParams(softnessToParams(v)),
           addTopping: (kind, pos) => field.add(kind, pos, blob),
@@ -268,6 +357,7 @@ export function useSlime(): UseSlimeResult {
       window.removeEventListener('resize', onResize)
       controller.current = null
       setReady(false)
+      bodyGradient.destroy()
       initPromise.then(() => {
         try {
           app.destroy(true, { children: true })
