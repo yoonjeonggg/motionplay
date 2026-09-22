@@ -43,7 +43,7 @@ export function Onboarding({ onClose }: Props) {
   return (
     <div className="onboarding-backdrop" onClick={onClose}>
       <div className="onboarding-card" onClick={(e) => e.stopPropagation()}>
-        <div>
+        <div className="onboarding-header">
           <p className="onboarding-title">✨ 모션플레잉에 오신 걸 환영해요</p>
           <p className="onboarding-subtitle">
             카메라로 손동작을 인식해서 슬라임을 조몰락거리며 놀 수 있어요

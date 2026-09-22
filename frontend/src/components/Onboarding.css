@@ -24,6 +24,12 @@
   backdrop-filter: blur(12px);
 }
 
+.onboarding-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .onboarding-title {
   margin: 0;
   font-size: 18px;
@@ -31,7 +37,7 @@
 }
 
 .onboarding-subtitle {
-  margin: -10px 0 0;
+  margin: 0;
   font-size: 13px;
   color: #b9b4c7;
 }
