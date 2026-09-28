@@ -39,13 +39,21 @@ export class ToppingField {
         best = i
       }
     }
-    this.list.push({
-      id: this.nextId++,
-      kind,
-      anchorIndex: best,
-      offset: { x: pos.x - pts[best].x, y: pos.y - pts[best].y },
-      size,
-    })
+    const anchor = pts[best]
+    // Keep the offset from where the user put it when that's on the slime.
+    // Outside it, the raw offset would leave the topping floating in the air
+    // (and a saved slime reloaded after the blob moved would scatter them),
+    // so seat it just inside the nearest edge instead.
+    let offset = { x: pos.x - anchor.x, y: pos.y - anchor.y }
+    if (!blob.contains(pos)) {
+      const c = blob.center()
+      const dx = c.x - anchor.x
+      const dy = c.y - anchor.y
+      const len = Math.hypot(dx, dy) || 1
+      const inset = Math.min(size * 0.8, len)
+      offset = { x: (dx / len) * inset, y: (dy / len) * inset }
+    }
+    this.list.push({ id: this.nextId++, kind, anchorIndex: best, offset, size })
   }
 
   positionOf(t: Topping, blob: VerletBlob): Vec2 {

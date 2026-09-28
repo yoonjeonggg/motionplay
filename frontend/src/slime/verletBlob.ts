@@ -95,6 +95,25 @@ export class VerletBlob {
     }
   }
 
+  /** Whether `p` lies inside the blob outline (even-odd ray cast). */
+  contains(p: Vec2): boolean {
+    const pts = this.points
+    let inside = false
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[i]
+      const b = pts[j]
+      if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) {
+        inside = !inside
+      }
+    }
+    return inside
+  }
+
+  /** Centroid of the blob. */
+  center(): Vec2 {
+    return this.areaAndCenter().center
+  }
+
   /**
    * Area and centroid together in one pass over the points, instead of two.
    * solvePressure() needs both every constraint iteration (12x/frame), so the
