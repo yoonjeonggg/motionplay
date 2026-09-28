@@ -48,7 +48,18 @@ func (h *Handler) PublicRoutes(r *gin.RouterGroup) {
 	r.GET("/:slug", h.getShared)
 }
 
-const maxToppings = 200
+const (
+	maxToppings = 200
+	maxColor    = 0xffffff
+	// shareSlugLen is the length of a slug from newShareSlug (9 random bytes,
+	// base64url-encoded).
+	shareSlugLen = 12
+)
+
+// toppingKinds mirrors TOPPING_KINDS in the frontend. Anything else is
+// rejected so arbitrary strings can't be stored and served back via share
+// links.
+var toppingKinds = map[string]bool{"star": true, "heart": true, "pearl": true}
 
 type payload struct {
 	Title    string      `json:"title" binding:"required,max=120"`
@@ -58,12 +69,12 @@ type payload struct {
 }
 
 func (p payload) validate() (ToppingList, bool) {
-	if len(p.Toppings) > maxToppings {
+	if len(p.Toppings) > maxToppings || p.Color < 0 || p.Color > maxColor {
 		return nil, false
 	}
 	list := make(ToppingList, 0, len(p.Toppings))
 	for _, t := range p.Toppings {
-		if t.Kind == "" || t.X < 0 || t.X > 1 || t.Y < 0 || t.Y > 1 {
+		if !toppingKinds[t.Kind] || t.X < 0 || t.X > 1 || t.Y < 0 || t.Y > 1 {
 			return nil, false
 		}
 		list = append(list, t)
@@ -81,7 +92,7 @@ func (h *Handler) create(c *gin.Context) {
 	}
 	toppings, ok := body.validate()
 	if !ok {
-		httpx.Error(c, http.StatusBadRequest, "invalid toppings")
+		httpx.Error(c, http.StatusBadRequest, "invalid color or toppings")
 		return
 	}
 
@@ -137,7 +148,7 @@ func (h *Handler) update(c *gin.Context) {
 	}
 	toppings, valid := body.validate()
 	if !valid {
-		httpx.Error(c, http.StatusBadRequest, "invalid toppings")
+		httpx.Error(c, http.StatusBadRequest, "invalid color or toppings")
 		return
 	}
 
@@ -193,7 +204,13 @@ func (h *Handler) share(c *gin.Context) {
 }
 
 func (h *Handler) getShared(c *gin.Context) {
-	item, err := h.store.ByShareSlug(c.Param("slug"))
+	slug := c.Param("slug")
+	// Reject anything that can't be a real slug before touching the database.
+	if !validShareSlug(slug) {
+		httpx.Error(c, http.StatusNotFound, "shared creation not found")
+		return
+	}
+	item, err := h.store.ByShareSlug(slug)
 	if err != nil {
 		httpx.Error(c, http.StatusNotFound, "shared creation not found")
 		return
@@ -213,4 +230,17 @@ func parseID(c *gin.Context) (uint, bool) {
 		return 0, false
 	}
 	return uint(n), true
+}
+
+func validShareSlug(s string) bool {
+	if len(s) != shareSlugLen {
+		return false
+	}
+	for _, r := range s {
+		isAlnum := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+		if !isAlnum && r != '-' && r != '_' {
+			return false
+		}
+	}
+	return true
 }

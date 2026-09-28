@@ -15,6 +15,29 @@ type Config struct {
 	DatabaseURL string
 	JWTSecret   string
 	JWTTTL      time.Duration
+	// CORSOrigins are the browser origins allowed to call the API.
+	CORSOrigins []string
+	// TrustedProxies are the proxy IPs/CIDRs whose X-Forwarded-For is
+	// believed. Empty means the direct peer address is the client IP.
+	TrustedProxies []string
+}
+
+// minJWTSecretLen is the shortest HS256 key accepted: 32 bytes matches the
+// hash output size, below which the key is the weakest link.
+const minJWTSecretLen = 32
+
+// weakJWTSecrets are placeholder values that must never reach a real server.
+var weakJWTSecrets = map[string]bool{
+	"change-me": true,
+	"changeme":  true,
+	"secret":    true,
+}
+
+var defaultCORSOrigins = []string{
+	"http://localhost:5173",
+	"http://localhost:5174",
+	"http://localhost:5175",
+	"http://localhost:5176",
 }
 
 // Load reads .env (if present) into the process environment, then builds a
@@ -23,10 +46,15 @@ func Load() (Config, error) {
 	loadDotEnv(".env")
 
 	cfg := Config{
-		Port:        getenv("PORT", "8080"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		JWTTTL:      7 * 24 * time.Hour,
+		Port:           getenv("PORT", "8080"),
+		DatabaseURL:    os.Getenv("DATABASE_URL"),
+		JWTSecret:      os.Getenv("JWT_SECRET"),
+		JWTTTL:         7 * 24 * time.Hour,
+		CORSOrigins:    splitList(os.Getenv("CORS_ORIGINS")),
+		TrustedProxies: splitList(os.Getenv("TRUSTED_PROXIES")),
+	}
+	if len(cfg.CORSOrigins) == 0 {
+		cfg.CORSOrigins = defaultCORSOrigins
 	}
 
 	var missing []string
@@ -39,7 +67,35 @@ func Load() (Config, error) {
 	if len(missing) > 0 {
 		return Config{}, fmt.Errorf("missing required env: %s", strings.Join(missing, ", "))
 	}
+	if err := validateJWTSecret(cfg.JWTSecret); err != nil {
+		return Config{}, err
+	}
 	return cfg, nil
+}
+
+// validateJWTSecret refuses short or placeholder secrets: anyone who guesses
+// the key can mint a token for any user.
+func validateJWTSecret(secret string) error {
+	if weakJWTSecrets[strings.ToLower(secret)] || len(secret) < minJWTSecretLen {
+		return fmt.Errorf(
+			"JWT_SECRET must be a random value of at least %d characters (e.g. `openssl rand -base64 48`)",
+			minJWTSecretLen,
+		)
+	}
+	return nil
+}
+
+// splitList parses a comma-separated env value, dropping blanks and any
+// trailing slash on origins.
+func splitList(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		part = strings.TrimSuffix(strings.TrimSpace(part), "/")
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func getenv(key, fallback string) string {

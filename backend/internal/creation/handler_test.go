@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,7 +76,10 @@ func (f *fakeStore) EnsureShareSlug(id, userID uint) (*Creation, error) {
 		return nil, ErrNotFound
 	}
 	if c.ShareSlug == nil {
-		slug := fmt.Sprintf("slug-%d", id)
+		slug, err := newShareSlug()
+		if err != nil {
+			return nil, err
+		}
 		c.ShareSlug = &slug
 	}
 	copy := *c
@@ -258,6 +262,9 @@ func TestCreationRejectsBadInput(t *testing.T) {
 		{"title": "ok", "softness": 1.5},
 		{"title": "ok", "softness": 0.5, "toppings": []gin.H{{"kind": "star", "x": 2, "y": 0.5}}},
 		{"title": "ok", "softness": 0.5, "toppings": []gin.H{{"kind": "", "x": 0.5, "y": 0.5}}},
+		{"title": "ok", "softness": 0.5, "toppings": []gin.H{{"kind": "<script>", "x": 0.5, "y": 0.5}}},
+		{"title": "ok", "softness": 0.5, "color": -1},
+		{"title": "ok", "softness": 0.5, "color": 0x1000000},
 	}
 	for i, body := range cases {
 		if rec := req(t, r, http.MethodPost, "/creations", tok, body); rec.Code != http.StatusBadRequest {
@@ -283,4 +290,19 @@ func bodyHasCount(t *testing.T, rec *httptest.ResponseRecorder, want int) bool {
 	}
 	mustDecode(t, rec, &out)
 	return len(out.Creations) == want
+}
+
+func TestValidShareSlug(t *testing.T) {
+	slug, err := newShareSlug()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !validShareSlug(slug) {
+		t.Fatalf("generated slug %q rejected", slug)
+	}
+	for _, bad := range []string{"", "short", "does-not-exist", "abc%2F..%2Fxy", "abcdefghijk!", strings.Repeat("a", 13)} {
+		if validShareSlug(bad) {
+			t.Errorf("validShareSlug(%q) = true", bad)
+		}
+	}
 }

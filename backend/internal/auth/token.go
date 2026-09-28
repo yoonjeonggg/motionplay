@@ -34,12 +34,15 @@ func (t *TokenIssuer) Issue(userID uint) (string, error) {
 // Parse validates a token string and returns the user ID from its subject.
 func (t *TokenIssuer) Parse(tokenString string) (uint, error) {
 	claims := &jwt.RegisteredClaims{}
-	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
-		}
-		return t.secret, nil
-	})
+	// Pin the exact algorithm we issue and require an expiry, rather than
+	// accepting any HMAC variant or a token that never expires.
+	_, err := jwt.ParseWithClaims(
+		tokenString,
+		claims,
+		func(*jwt.Token) (any, error) { return t.secret, nil },
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
+	)
 	if err != nil {
 		return 0, ErrInvalidToken
 	}

@@ -17,7 +17,7 @@ npm run dev
 ### backend
 ```bash
 cd backend
-cp .env.example .env         # set DATABASE_URL and JWT_SECRET
+cp .env.example .env         # set DATABASE_URL and JWT_SECRET (openssl rand -base64 48)
 docker compose up -d         # local PostgreSQL on :5433 (see docker-compose.yml)
 go run ./cmd/server
 ```
@@ -42,7 +42,25 @@ without a database.
 | DELETE | `/api/creations/:id`   | Bearer | delete (owner)              |
 
 A creation is `{ title, color, softness, toppings: [{ kind, x, y }] }`, where
-`x`/`y` are normalised 0..1 to the slime canvas.
+`x`/`y` are normalised 0..1 to the slime canvas, `color` is 0..0xFFFFFF and
+`kind` is one of `star`, `heart`, `pearl`.
+
+### Security
+- The server refuses to start unless `JWT_SECRET` is at least 32 characters
+  and not a placeholder.
+- Signup/login are rate-limited per client IP (burst 10, then ~10/min), the
+  rest of `/api` more loosely; over the limit returns `429` with `Retry-After`.
+  Behind a reverse proxy, set `TRUSTED_PROXIES` so client IPs come from
+  `X-Forwarded-For` — otherwise that header is ignored.
+- `CORS_ORIGINS` (comma-separated) sets the allowed frontend origins;
+  defaults to the local Vite ports.
+- Request bodies are capped at 64 KB; responses send `nosniff`,
+  `X-Frame-Options: DENY` and `Cache-Control: no-store`.
+- Production frontend builds include a Content-Security-Policy `<meta>`
+  (scripts: own bundle + hashed inline theme script only; network: self +
+  `VITE_API_URL`). When deploying, also send it as a header with
+  `frame-ancestors 'none'`.
+- The MediaPipe model download is checked against a pinned SHA-256.
 
 ## Notes
 - Secrets live in `.env` files and are git-ignored. Use `.env.example` as the template.

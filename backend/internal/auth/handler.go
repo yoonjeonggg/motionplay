@@ -29,10 +29,11 @@ func NewHandler(users UserStore, tokens *TokenIssuer) *Handler {
 	return &Handler{users: users, tokens: tokens}
 }
 
-// Routes registers the auth endpoints under the given group.
-func (h *Handler) Routes(r *gin.RouterGroup) {
-	r.POST("/signup", h.signup)
-	r.POST("/login", h.login)
+// Routes registers the auth endpoints under the given group. credentialMW
+// (e.g. a rate limiter) runs only on the endpoints that check passwords.
+func (h *Handler) Routes(r *gin.RouterGroup, credentialMW ...gin.HandlerFunc) {
+	r.POST("/signup", append(credentialMW, h.signup)...)
+	r.POST("/login", append(credentialMW, h.login)...)
 	r.GET("/me", Middleware(h.tokens), h.me)
 }
 
@@ -90,6 +91,9 @@ func (h *Handler) login(c *gin.Context) {
 	u, err := h.users.ByEmail(email)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
+			// Burn the same bcrypt time as a real check, so response timing
+			// doesn't reveal which emails have accounts.
+			checkPassword(dummyHash, body.Password)
 			httpx.Error(c, http.StatusUnauthorized, "invalid email or password")
 			return
 		}

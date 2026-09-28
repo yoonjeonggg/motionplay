@@ -29,10 +29,21 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
+	handler, err := server.New(cfg, database)
+	if err != nil {
+		log.Fatalf("server: %v", err)
+	}
+
+	// Full timeouts, not just the header one, so slow clients can't hold
+	// connections open indefinitely (slowloris-style exhaustion).
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.New(cfg, database),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
 	}
 
 	go func() {

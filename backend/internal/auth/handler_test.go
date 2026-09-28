@@ -124,3 +124,18 @@ func TestSignupRejectsShortPassword(t *testing.T) {
 		t.Fatalf("status %d, want 400", rec.Code)
 	}
 }
+
+func TestLoginUnknownEmailMatchesWrongPassword(t *testing.T) {
+	r := newTestRouter()
+	creds := gin.H{"email": "known@example.com", "password": "hunter2hunter2"}
+	doJSON(t, r, http.MethodPost, "/auth/signup", "", creds)
+
+	unknown := doJSON(t, r, http.MethodPost, "/auth/login", "", gin.H{"email": "nobody@example.com", "password": "hunter2hunter2"})
+	wrong := doJSON(t, r, http.MethodPost, "/auth/login", "", gin.H{"email": "known@example.com", "password": "wrongwrong"})
+	if unknown.Code != http.StatusUnauthorized || wrong.Code != http.StatusUnauthorized {
+		t.Fatalf("statuses unknown=%d wrong=%d, want 401/401", unknown.Code, wrong.Code)
+	}
+	if unknown.Body.String() != wrong.Body.String() {
+		t.Fatalf("responses differ: %s vs %s", unknown.Body, wrong.Body)
+	}
+}
