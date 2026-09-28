@@ -7,6 +7,9 @@ import {
   Graphics,
   GraphicsContext,
 } from 'pixi.js'
+// Swaps Pixi's runtime-generated (new Function) shader/uniform code for
+// static versions, so the renderer works under our CSP without 'unsafe-eval'.
+import 'pixi.js/unsafe-eval'
 import { applyPalette, GIFEncoder, quantize, type Palette } from 'gifenc'
 import {
   createToppingContext,

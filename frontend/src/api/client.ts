@@ -146,7 +146,9 @@ export function createApiClient({ baseUrl, storage, fetchImpl }: ClientOptions) 
     getShared: (slug: string) =>
       request<{ creation: SharedCreation }>(
         'GET',
-        `/api/share/${slug}`,
+        // The slug comes from the page URL, so encode it: an unencoded
+        // "../creations" would otherwise resolve to a different API path.
+        `/api/share/${encodeURIComponent(slug)}`,
         undefined,
         false,
       ),
