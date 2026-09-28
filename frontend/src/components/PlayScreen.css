@@ -2,8 +2,7 @@
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background:
-    radial-gradient(120% 120% at 50% 0%, #1b1030 0%, #0a0a12 55%, #06060b 100%);
+  background: var(--bg);
 }
 
 .slime-canvas {
@@ -27,102 +26,26 @@
   position: absolute;
   top: 16px;
   left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  font-size: 13px;
-  color: #e8e5f0;
-  background: rgba(10, 10, 18, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  backdrop-filter: blur(10px);
   z-index: 5;
-}
-
-.share-banner button {
-  padding: 2px 4px;
-  font-size: 13px;
-  color: #b9b4c7;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.dock-bottom {
-  position: absolute;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
-}
-
-.hint {
-  margin: 0;
-  padding: 8px 16px;
-  font-size: 13px;
-  color: #b9b4c7;
-  background: rgba(10, 10, 18, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  backdrop-filter: blur(8px);
-  pointer-events: none;
-}
-
-.dock-actions {
-  display: flex;
   gap: 8px;
+  padding: 4px 4px 4px 12px;
+  font-size: var(--text-md);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
 }
 
-.reset-btn {
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #e8e5f0;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.15s ease;
+.share-banner > svg {
+  flex: none;
+  color: var(--text-muted);
 }
 
-.reset-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.reset-btn:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.mode-toggle {
-  display: flex;
-  gap: 4px;
-}
-
-.mode-toggle button {
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #b9b4c7;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.mode-toggle button[data-active='true'] {
-  color: #0a0a12;
-  background: #c4b5fd;
-  border-color: #c4b5fd;
-}
-
-/* Left dock: slime controls + gallery, stacked (top-left) -------------- */
+/* Top-left: slime settings + gallery ------------------------------------ */
 .left-dock {
   position: absolute;
   top: 16px;
@@ -130,297 +53,126 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: calc(100% - 32px);
+  width: 256px;
+  max-height: calc(100% - 120px);
   overflow-y: auto;
 }
 
-.slime-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(10, 10, 18, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-}
-
-.panel-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.panel-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #b9b4c7;
-  width: 40px;
-}
-
-.swatches {
-  display: flex;
-  gap: 6px;
-}
-
-.swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.12s ease, border-color 0.12s ease;
-}
-
-.swatch:hover {
-  transform: scale(1.12);
-}
-
-.swatch[data-active='true'] {
-  border-color: #fff;
-}
-
-.softness {
-  width: 120px;
-  accent-color: #a855f7;
-}
-
-/* Camera dock (top-right) ------------------------------------------------ */
-.camera-dock {
+/* Bottom bar: utilities | actions | account ------------------------------ */
+.bottom-bar {
   position: absolute;
-  top: 16px;
+  left: 16px;
   right: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-}
-
-.pip {
-  position: relative;
-  width: 240px;
-  aspect-ratio: 4 / 3;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.6);
-}
-
-.pip[data-streaming='false'] {
-  display: none;
-}
-
-.pip-feed,
-.pip-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform: scaleX(-1);
-}
-
-.pip-feed {
-  object-fit: cover;
-}
-
-.pip-overlay {
+  bottom: 16px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 12px;
   pointer-events: none;
 }
 
-.pip-badge {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 9px;
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(6, 6, 12, 0.62);
-  backdrop-filter: blur(6px);
+.bottom-bar > * {
+  pointer-events: auto;
 }
 
-.pip-badge--ok {
-  color: #86efac;
-}
-.pip-badge--wait {
-  color: #fcd34d;
-}
-.pip-badge--error {
-  color: #fca5a5;
-}
-
-/* Gesture feedback strip ---------------------------------------------- */
-.gesture-strip {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  display: flex;
-  gap: 6px;
-}
-
-.gesture-chip {
+.bottom-bar-start {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(6, 6, 12, 0.6);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 8px;
 }
 
-.gesture-chip[data-grip='true'] {
-  border-color: rgba(134, 239, 172, 0.7);
-}
-
-.gesture-icon {
-  font-size: 13px;
-  line-height: 1;
-}
-
-.gesture-bar {
-  width: 34px;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  overflow: hidden;
-}
-
-.gesture-bar-fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #86efac);
-  transition: width 0.12s linear;
-}
-
-/* Hand-control prompt --------------------------------------------------- */
-.hand-prompt {
+.bottom-bar-center {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  max-width: 240px;
-  text-align: right;
+  align-items: center;
+  gap: 8px;
 }
 
-.hand-prompt-btn {
-  font-size: 14px;
-  font-weight: 700;
-  padding: 10px 18px;
+.bottom-bar-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The slime often rests right behind this, so it needs its own backing. */
+.hint {
+  margin: 0;
+  padding: 4px 12px;
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  border: 0;
-  cursor: pointer;
-  color: #fff;
-  background: linear-gradient(120deg, #a855f7, #6366f1);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  pointer-events: none;
 }
 
-.hand-prompt-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 30px -8px rgba(139, 92, 246, 0.7);
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
-.hand-prompt-btn:disabled {
-  opacity: 0.6;
-  cursor: progress;
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--border);
 }
 
-.hand-prompt-note {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #8b8699;
-}
-
-.hand-prompt-error {
-  margin: 0;
-  font-size: 11px;
-  color: #fca5a5;
-}
-
-/* Mobile / narrow viewport --------------------------------------------- */
+/* Narrow viewport ------------------------------------------------------ */
 @media (max-width: 640px) {
   .left-dock {
     top: 12px;
     left: 12px;
-    max-width: calc(56vw - 18px);
-  }
-
-  .softness {
-    width: 100%;
-  }
-
-  .panel-label {
-    width: 34px;
-    font-size: 11px;
-  }
-
-  .camera-dock {
-    top: 12px;
-    right: 12px;
-    max-width: calc(44vw - 18px);
-  }
-
-  .pip {
-    width: 100%;
-  }
-
-  .gesture-strip {
-    flex-wrap: wrap;
-  }
-
-  .hand-prompt {
-    max-width: calc(44vw - 18px);
-  }
-
-  .hand-prompt-btn {
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-
-  .hand-prompt-note {
-    display: none;
+    width: calc(56vw - 18px);
+    max-height: calc(100% - 170px);
   }
 
   .share-banner {
     top: auto;
-    bottom: 84px;
-    max-width: calc(100vw - 32px);
-    font-size: 12px;
+    bottom: 132px;
+    max-width: calc(100vw - 24px);
+    font-size: var(--text-sm);
   }
 
-  .dock-bottom {
-    bottom: 14px;
-    max-width: calc(100vw - 24px);
+  .bottom-bar {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'center center'
+      'start end';
+  }
+
+  .bottom-bar-start {
+    grid-area: start;
+  }
+
+  .bottom-bar-center {
+    grid-area: center;
+  }
+
+  .bottom-bar-end {
+    grid-area: end;
   }
 
   .hint {
-    font-size: 11px;
-    text-align: center;
+    font-size: var(--text-sm);
   }
 
-  .dock-actions {
-    flex-wrap: wrap;
-    justify-content: center;
+  .tool-btn {
+    width: 40px;
+    padding: 0;
   }
 
-  .reset-btn {
-    padding: 7px 12px;
-    font-size: 12px;
-  }
-
-  .auth-widget {
-    right: 10px;
-    bottom: 10px;
-  }
-
-  .tutorial-replay {
-    left: 10px;
-    bottom: 10px;
-    padding: 5px 10px;
-    font-size: 11px;
+  .tool-btn-label {
+    display: none;
   }
 }

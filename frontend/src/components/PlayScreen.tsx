@@ -1,67 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  CircleHelp,
+  Eraser,
+  Film,
+  ImageDown,
+  Link,
+  LoaderCircle,
+  RotateCcw,
+  X,
+} from 'lucide-react'
 import { AuthWidget } from './AuthWidget'
+import { CameraDock } from './CameraDock'
 import { GalleryPanel } from './GalleryPanel'
 import { Onboarding } from './Onboarding'
-import type { CameraStatus } from '../hooks/useCamera'
-import { useCamera } from '../hooks/useCamera'
-import { useHandTracking } from '../hooks/useHandTracking'
-import { createHandSlimeDriver, type HandGesture } from '../slime/handControl'
-import { type ToppingKind, TOPPING_KINDS } from '../slime/toppings'
-import { useSlime } from '../slime/useSlime'
+import { type Mode, SlimePanel } from './SlimePanel'
+import { ThemeToggle } from './ThemeToggle'
 import { api } from '../api/client'
 import type { Creation, CreationInput, SharedCreation } from '../api/client'
+import { readStorage, writeStorage } from '../lib/storage'
+import { DEFAULT_SLIME_COLOR, DEFAULT_SOFTNESS } from '../slime/palette'
+import { type ToppingKind, TOPPING_KINDS } from '../slime/toppings'
+import { useSlime } from '../slime/useSlime'
 import './PlayScreen.css'
 
 const GRAB_RADIUS = 92
-const GESTURE_UI_INTERVAL = 120
-
-const SLIME_COLORS = [
-  { name: '민트', rgb: 0x7cf29c, css: '#7cf29c' },
-  { name: '핑크', rgb: 0xf9a8d4, css: '#f9a8d4' },
-  { name: '블루', rgb: 0x93c5fd, css: '#93c5fd' },
-  { name: '퍼플', rgb: 0xc4b5fd, css: '#c4b5fd' },
-  { name: '옐로', rgb: 0xfde68a, css: '#fde68a' },
-]
-const DEFAULT_COLOR = SLIME_COLORS[0].rgb
-const DEFAULT_SOFTNESS = 0.4
-
-const TOPPING_LABEL: Record<ToppingKind, string> = {
-  star: '★',
-  heart: '♥',
-  pearl: '⬤',
-}
-
-type Mode = 'squish' | 'topping'
-
 const ONBOARDING_KEY = 'mp.onboarding.seen'
-
-function hasSeenOnboarding(): boolean {
-  try {
-    return globalThis.localStorage?.getItem(ONBOARDING_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function markOnboardingSeen() {
-  try {
-    globalThis.localStorage?.setItem(ONBOARDING_KEY, '1')
-  } catch {
-    /* private mode / disabled storage */
-  }
-}
 
 export function PlayScreen() {
   const { canvasRef, controller, ready } = useSlime()
 
-  const [gestures, setGestures] = useState<HandGesture[]>([])
-  const lastGestureUi = useRef(0)
-
-  const [color, setColor] = useState(DEFAULT_COLOR)
+  const [color, setColor] = useState(DEFAULT_SLIME_COLOR)
   const [softness, setSoftness] = useState(DEFAULT_SOFTNESS)
   const [mode, setMode] = useState<Mode>('squish')
   const [toppingKind, setToppingKind] = useState<ToppingKind>(TOPPING_KINDS[0])
-  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding())
+  const [streaming, setStreaming] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => readStorage(ONBOARDING_KEY) !== '1',
+  )
   const [recordingGif, setRecordingGif] = useState(false)
 
   const onRecordGif = async () => {
@@ -75,7 +50,7 @@ export function PlayScreen() {
   }
 
   const closeOnboarding = () => {
-    markOnboardingSeen()
+    writeStorage(ONBOARDING_KEY, '1')
     setShowOnboarding(false)
   }
 
@@ -92,67 +67,43 @@ export function PlayScreen() {
     toppings: controller.current?.snapshotToppings() ?? [],
   })
 
-  const loadCreation = (c: Creation) => {
+  const loadCreation = (c: Creation | SharedCreation) => {
     setColor(c.color)
     setSoftness(c.softness)
     controller.current?.loadToppings(c.toppings)
   }
 
+  // A ?share= link is fetched right away but can only be applied once the
+  // slime renderer is ready. Chaining onto the request promise applies it
+  // whichever finishes last — the fetch or the renderer init. (The previous
+  // version only re-checked on `ready`, so a fetch slower than renderer init
+  // was silently dropped.)
   const [sharedTitle, setSharedTitle] = useState<string | null>(null)
-  const pendingShared = useRef<SharedCreation | null>(null)
+  const [sharedRequest] = useState(() => fetchSharedFromUrl())
+  const sharedApplied = useRef(false)
 
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get('share')
-    if (!slug) return
-    api
-      .getShared(slug)
-      .then(({ creation }) => {
-        pendingShared.current = creation
-        setSharedTitle(creation.title)
-      })
-      .catch(() => {
-        /* unknown/expired link: just show the default slime */
-      })
-  }, [])
+    if (!ready) return
+    let cancelled = false
+    void sharedRequest.then((creation) => {
+      if (!creation || cancelled || sharedApplied.current) return
+      sharedApplied.current = true
+      setSharedTitle(creation.title)
+      setColor(creation.color)
+      setSoftness(creation.softness)
+      controller.current?.loadToppings(creation.toppings)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ready, sharedRequest, controller])
 
-  useEffect(() => {
-    if (!ready || !pendingShared.current) return
-    const c = pendingShared.current
-    pendingShared.current = null
-    setColor(c.color)
-    setSoftness(c.softness)
-    controller.current?.loadToppings(c.toppings)
-  }, [ready, controller])
-
-  const handDriverRef = useRef<ReturnType<typeof createHandSlimeDriver> | null>(
-    null,
-  )
-  handDriverRef.current ??= createHandSlimeDriver(
-    () => controller.current,
-    {},
-    (next) => {
-      const now = performance.now()
-      if (now - lastGestureUi.current < GESTURE_UI_INTERVAL) return
-      lastGestureUi.current = now
-      setGestures(next)
-    },
-  )
-
-  useEffect(() => {
-    handDriverRef.current?.setSelectedTopping(toppingKind)
-  }, [toppingKind])
-
-  const { videoRef, status: cameraStatus, error: cameraError, start } = useCamera()
-  const streaming = cameraStatus === 'streaming'
-  const {
-    overlayRef,
-    status: trackerStatus,
-    error: trackerError,
-    handCount,
-    fps,
-  } = useHandTracking(videoRef, streaming, (hands) =>
-    handDriverRef.current?.update(hands),
-  )
+  const dismissShared = () => {
+    setSharedTitle(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('share')
+    window.history.replaceState({}, '', url)
+  }
 
   const dragging = useRef(false)
   const last = useRef({ x: 0, y: 0 })
@@ -198,20 +149,19 @@ export function PlayScreen() {
     if (mode === 'topping') controller.current?.setHeldTopping(null, null)
   }
 
-  const dismissShared = () => {
-    setSharedTitle(null)
-    const url = new URL(window.location.href)
-    url.searchParams.delete('share')
-    window.history.replaceState({}, '', url)
-  }
-
   return (
     <div className="stage">
       {sharedTitle && (
-        <div className="share-banner">
-          <span>✨ 공유된 슬라임 &lsquo;{sharedTitle}&rsquo;을 불러왔어요</span>
-          <button type="button" onClick={dismissShared} aria-label="닫기">
-            ✕
+        <div className="share-banner" role="status">
+          <Link size={14} aria-hidden />
+          <span>공유된 슬라임 &lsquo;{sharedTitle}&rsquo;을 불러왔어요</span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={dismissShared}
+            aria-label="닫기"
+          >
+            <X size={14} aria-hidden />
           </button>
         </div>
       )}
@@ -241,80 +191,104 @@ export function PlayScreen() {
         <GalleryPanel getCurrent={currentCreation} onLoad={loadCreation} />
       </div>
 
-      <div className="dock-bottom">
-        <p className="hint">{hintText(streaming, mode)}</p>
-        <div className="dock-actions">
-          <button
-            type="button"
-            className="reset-btn"
-            onClick={() => controller.current?.reset()}
-          >
-            다시 뭉치기
-          </button>
-          <button
-            type="button"
-            className="reset-btn"
-            onClick={() => controller.current?.clearToppings()}
-          >
-            토핑 비우기
-          </button>
-          <button
-            type="button"
-            className="reset-btn"
-            onClick={() => controller.current?.screenshot()}
-          >
-            스크린샷 저장
-          </button>
-          <button
-            type="button"
-            className="reset-btn"
-            onClick={onRecordGif}
-            disabled={recordingGif}
-          >
-            {recordingGif ? 'GIF 녹화 중…' : 'GIF 저장'}
-          </button>
-        </div>
-      </div>
+      <CameraDock
+        controller={controller}
+        toppingKind={toppingKind}
+        onStreamingChange={setStreaming}
+      />
 
-      <div className="camera-dock">
-        <div className="pip" data-streaming={streaming}>
-          <video ref={videoRef} className="pip-feed" playsInline muted />
-          <canvas ref={overlayRef} className="pip-overlay" />
-          {streaming && (
-            <>
-              <TrackerBadge
-                status={trackerStatus}
-                error={trackerError}
-                handCount={handCount}
-                fps={fps}
-              />
-              <GestureStrip gestures={gestures} />
-            </>
-          )}
+      <div className="bottom-bar">
+        <div className="bottom-bar-start">
+          <button
+            type="button"
+            className="btn btn-icon"
+            onClick={() => setShowOnboarding(true)}
+            title="사용법 보기"
+            aria-label="사용법 보기"
+          >
+            <CircleHelp size={16} aria-hidden />
+          </button>
+          <ThemeToggle />
         </div>
 
-        {!streaming && (
-          <HandControlPrompt
-            status={cameraStatus}
-            error={cameraError}
-            onStart={start}
-          />
-        )}
+        <div className="bottom-bar-center">
+          <p className="hint">{hintText(streaming, mode)}</p>
+          <div className="toolbar" role="toolbar" aria-label="슬라임 작업">
+            <ToolButton
+              label="다시 뭉치기"
+              icon={<RotateCcw size={16} aria-hidden />}
+              onClick={() => controller.current?.reset()}
+            />
+            <ToolButton
+              label="토핑 비우기"
+              icon={<Eraser size={16} aria-hidden />}
+              onClick={() => controller.current?.clearToppings()}
+            />
+            <span className="toolbar-divider" aria-hidden />
+            <ToolButton
+              label="이미지 저장"
+              icon={<ImageDown size={16} aria-hidden />}
+              onClick={() => controller.current?.screenshot()}
+            />
+            <ToolButton
+              label={recordingGif ? 'GIF 녹화 중' : 'GIF 저장'}
+              icon={
+                recordingGif ? (
+                  <LoaderCircle size={16} className="spin" aria-hidden />
+                ) : (
+                  <Film size={16} aria-hidden />
+                )
+              }
+              onClick={onRecordGif}
+              busy={recordingGif}
+            />
+          </div>
+        </div>
+
+        <div className="bottom-bar-end">
+          <AuthWidget />
+        </div>
       </div>
-
-      <AuthWidget />
-
-      <button
-        type="button"
-        className="tutorial-replay"
-        onClick={() => setShowOnboarding(true)}
-      >
-        튜토리얼 다시보기
-      </button>
 
       {showOnboarding && <Onboarding onClose={closeOnboarding} />}
     </div>
   )
+}
+
+function ToolButton({
+  label,
+  icon,
+  onClick,
+  busy = false,
+}: {
+  label: string
+  icon: React.ReactNode
+  onClick: () => void
+  busy?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost tool-btn"
+      onClick={onClick}
+      disabled={busy}
+      aria-busy={busy}
+      title={label}
+    >
+      {icon}
+      <span className="tool-btn-label">{label}</span>
+    </button>
+  )
+}
+
+async function fetchSharedFromUrl(): Promise<SharedCreation | null> {
+  const slug = new URLSearchParams(window.location.search).get('share')
+  if (!slug) return null
+  try {
+    return (await api.getShared(slug)).creation
+  } catch {
+    return null // unknown/expired link: just show the default slime
+  }
 }
 
 function hintText(streaming: boolean, mode: Mode): string {
@@ -326,177 +300,4 @@ function hintText(streaming: boolean, mode: Mode): string {
   return streaming
     ? '주먹을 쥐어 잡고, 편 손으로 밀어 보세요'
     : '슬라임을 드래그해 누르고 늘려 보세요'
-}
-
-function SlimePanel({
-  color,
-  softness,
-  mode,
-  toppingKind,
-  onColor,
-  onSoftness,
-  onMode,
-  onToppingKind,
-}: {
-  color: number
-  softness: number
-  mode: Mode
-  toppingKind: ToppingKind
-  onColor: (rgb: number) => void
-  onSoftness: (v: number) => void
-  onMode: (m: Mode) => void
-  onToppingKind: (k: ToppingKind) => void
-}) {
-  return (
-    <div className="slime-panel">
-      <div className="panel-row">
-        <span className="panel-label">색상</span>
-        <div className="swatches">
-          {SLIME_COLORS.map((c) => (
-            <button
-              key={c.name}
-              type="button"
-              className="swatch"
-              style={{ background: c.css }}
-              data-active={c.rgb === color}
-              aria-label={c.name}
-              aria-pressed={c.rgb === color}
-              onClick={() => onColor(c.rgb)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="panel-row">
-        <span className="panel-label">말랑함</span>
-        <input
-          type="range"
-          className="softness"
-          min={0}
-          max={1}
-          step={0.05}
-          value={softness}
-          onChange={(e) => onSoftness(Number(e.target.value))}
-        />
-      </div>
-
-      <div className="panel-row">
-        <span className="panel-label">모드</span>
-        <div className="mode-toggle">
-          <button
-            type="button"
-            data-active={mode === 'squish'}
-            onClick={() => onMode('squish')}
-          >
-            주무르기
-          </button>
-          <button
-            type="button"
-            data-active={mode === 'topping'}
-            onClick={() => onMode('topping')}
-          >
-            토핑
-          </button>
-        </div>
-      </div>
-
-      {mode === 'topping' && (
-        <div className="panel-row">
-          <span className="panel-label">토핑</span>
-          <div className="mode-toggle">
-            {TOPPING_KINDS.map((k) => (
-              <button
-                key={k}
-                type="button"
-                data-active={k === toppingKind}
-                onClick={() => onToppingKind(k)}
-              >
-                {TOPPING_LABEL[k]}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TrackerBadge({
-  status,
-  error,
-  handCount,
-  fps,
-}: {
-  status: ReturnType<typeof useHandTracking>['status']
-  error: string | null
-  handCount: number
-  fps: number
-}) {
-  let text = ''
-  let tone = 'wait'
-  if (status === 'loading') text = '손 인식 모델 로딩 중…'
-  else if (status === 'error') {
-    text = error ?? '인식 오류'
-    tone = 'error'
-  } else if (handCount === 0) text = '손을 보여주세요'
-  else {
-    text = `손 ${handCount}개 · ${fps}fps`
-    tone = 'ok'
-  }
-  return <span className={`pip-badge pip-badge--${tone}`}>{text}</span>
-}
-
-function GestureStrip({ gestures }: { gestures: HandGesture[] }) {
-  if (gestures.length === 0) return null
-  return (
-    <div className="gesture-strip">
-      {gestures.map((g, i) => {
-        const level = Math.max(0, Math.min(1, (g.openness - 0.7) / 1.5))
-        const icon = g.pinching ? '🤏' : g.gripping ? '✊' : '✋'
-        return (
-          <div
-            key={i}
-            className="gesture-chip"
-            data-grip={g.gripping || g.pinching}
-          >
-            <span className="gesture-icon">{icon}</span>
-            <span className="gesture-bar">
-              <span
-                className="gesture-bar-fill"
-                style={{ width: `${level * 100}%` }}
-              />
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function HandControlPrompt({
-  status,
-  error,
-  onStart,
-}: {
-  status: CameraStatus
-  error: string | null
-  onStart: () => void
-}) {
-  const requesting = status === 'requesting'
-  return (
-    <div className="hand-prompt">
-      <button
-        type="button"
-        className="hand-prompt-btn"
-        onClick={onStart}
-        disabled={requesting}
-      >
-        {requesting ? '카메라 준비 중…' : '✋ 손으로 조작하기'}
-      </button>
-      <p className="hand-prompt-note">
-        영상은 기기에서만 처리되며 서버로 전송되지 않습니다.
-      </p>
-      {error && <p className="hand-prompt-error">{error}</p>}
-    </div>
-  )
 }

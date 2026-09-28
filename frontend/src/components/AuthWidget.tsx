@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { LoaderCircle, LogOut, User } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import './AuthWidget.css'
 
@@ -14,6 +15,7 @@ export function AuthWidget() {
   }, [restore])
 
   const busy = status === 'loading'
+  const authed = status === 'authed' && user !== null
 
   const submit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -27,77 +29,88 @@ export function AuthWidget() {
     }
   }
 
-  if (status === 'authed' && user) {
-    return (
-      <div className="auth-widget">
-        <button
-          type="button"
-          className="auth-pill"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {user.email}
-        </button>
-        {open && (
-          <div className="auth-pop">
-            <button type="button" className="auth-submit" onClick={logout}>
-              로그아웃
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="auth-widget">
-      <button
-        type="button"
-        className="auth-pill"
-        onClick={() => setOpen((v) => !v)}
-      >
-        로그인
-      </button>
-      {open && (
-        <form className="auth-pop" onSubmit={submit}>
-          <div className="auth-tabs">
+      {open && authed && (
+        <div className="panel auth-pop">
+          <p className="text-muted auth-email" title={user.email}>
+            {user.email}
+          </p>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              logout()
+              setOpen(false)
+            }}
+          >
+            <LogOut size={16} aria-hidden />
+            로그아웃
+          </button>
+        </div>
+      )}
+
+      {open && !authed && (
+        <form className="panel auth-pop" onSubmit={submit}>
+          <div className="segmented auth-tabs">
             <button
               type="button"
-              data-active={mode === 'login'}
+              aria-pressed={mode === 'login'}
               onClick={() => setMode('login')}
             >
               로그인
             </button>
             <button
               type="button"
-              data-active={mode === 'signup'}
+              aria-pressed={mode === 'signup'}
               onClick={() => setMode('signup')}
             >
               가입
             </button>
           </div>
           <input
+            className="input"
             type="email"
             placeholder="이메일"
+            aria-label="이메일"
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
           <input
+            className="input"
             type="password"
             placeholder="비밀번호 (8자 이상)"
+            aria-label="비밀번호"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             minLength={8}
             required
           />
-          {error && <p className="auth-error">{error}</p>}
-          <button type="submit" className="auth-submit" disabled={busy}>
-            {busy ? '처리 중…' : mode === 'login' ? '로그인' : '가입하기'}
+          {error && <p className="text-error">{error}</p>}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={busy}
+            aria-busy={busy}
+          >
+            {busy && <LoaderCircle size={16} className="spin" aria-hidden />}
+            {mode === 'login' ? '로그인' : '가입하기'}
           </button>
         </form>
       )}
+
+      <button
+        type="button"
+        className="btn auth-pill"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <User size={16} aria-hidden />
+        <span className="auth-pill-label">{authed ? user.email : '로그인'}</span>
+      </button>
     </div>
   )
 }

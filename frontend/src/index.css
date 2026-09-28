@@ -1,11 +1,64 @@
+/* Design tokens ---------------------------------------------------------
+ * Every component reads colours, radii and type sizes from here, so light
+ * and dark mode are just two sets of values for the same names.
+ * data-theme is set before first paint by the script in index.html.
+ */
 :root {
-  --sans: system-ui, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', sans-serif;
+  --sans: system-ui, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', 'Malgun Gothic',
+    sans-serif;
+
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --surface-muted: #f4f4f5;
+  --surface-hover: #e9e9ec;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --text: #18181b;
+  --text-muted: #6b6b76;
+  --text-subtle: #9a9aa3;
+  --primary: #18181b;
+  --primary-text: #ffffff;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #b45309;
+  --focus: #2563eb;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --backdrop: rgba(24, 24, 27, 0.4);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 17px;
 
   font-family: var(--sans);
   line-height: 1.5;
-  color-scheme: dark;
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='dark'] {
+  --bg: #111113;
+  --surface: #1b1b1f;
+  --surface-muted: #242429;
+  --surface-hover: #2d2d33;
+  --border: #2c2c32;
+  --border-strong: #3a3a42;
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-subtle: #71717a;
+  --primary: #f4f4f5;
+  --primary-text: #111113;
+  --danger: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --focus: #60a5fa;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --backdrop: rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
 }
 
 * {
@@ -20,11 +73,193 @@ body,
 
 body {
   margin: 0;
-  background: #06060b;
-  color: #e8e5f0;
+  background: var(--bg);
+  color: var(--text);
   overflow: hidden;
 }
 
-button {
+button,
+input {
   font-family: inherit;
+  font-size: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Shared UI primitives --------------------------------------------------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: var(--text-md);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn[aria-busy='true'] {
+  cursor: progress;
+}
+
+.btn-primary {
+  color: var(--primary-text);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary);
+  opacity: 0.88;
+}
+
+.btn-sm {
+  height: 28px;
+  padding: 0 9px;
+  font-size: var(--text-sm);
+}
+
+.btn-icon {
+  width: 34px;
+  padding: 0;
+}
+
+.btn-icon.btn-sm {
+  width: 28px;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-danger {
+  color: var(--danger);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  min-width: 30px;
+  padding: 0 10px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button[aria-pressed='true'] {
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.input {
+  height: 34px;
+  padding: 0 10px;
+  font-size: var(--text-md);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.input::placeholder {
+  color: var(--text-subtle);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--focus);
+}
+
+.text-error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+.text-muted {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 10px;
+  }
 }
