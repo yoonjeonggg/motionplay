@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
-import { HAND_CONNECTIONS, HandTracker } from '../vision/handTracker'
+import { type HandConnection, HandTracker } from '../vision/handTracker'
 
 export type TrackerStatus = 'loading' | 'ready' | 'error'
 
@@ -50,6 +50,10 @@ export function useHandTracking(
     // Last detection, kept so frames where the video hasn't advanced still
     // redraw (and report) the most recent hands.
     let latestHands: NormalizedLandmark[][] = []
+    // Kept with the hands: reading it from this frame's (often null) result
+    // made a left hand flicker to the right-hand colour on every frame the
+    // camera hadn't advanced.
+    let latestColors: string[] = []
 
     let frames = 0
     let fpsWindowStart = performance.now()
@@ -74,6 +78,9 @@ export function useHandTracking(
       const result = tracker.detect(video, now)
       if (result) {
         latestHands = result.landmarks
+        latestColors = result.landmarks.map(
+          (_, i) => HANDEDNESS_COLORS[result.handedness?.[i]?.[0]?.categoryName ?? 'Right'] ?? '#f472b6',
+        )
         if (result.landmarks.length !== lastHandCount) {
           lastHandCount = result.landmarks.length
           setHandCount(result.landmarks.length)
@@ -85,14 +92,7 @@ export function useHandTracking(
       // The canvas is mirrored in CSS to match the selfie-view video, so
       // landmarks are drawn in raw frame coordinates here.
       hands.forEach((landmarks, i) => {
-        const handedness = result?.handedness?.[i]?.[0]?.categoryName ?? 'Right'
-        drawHand(
-          ctx,
-          landmarks,
-          canvas.width,
-          canvas.height,
-          HANDEDNESS_COLORS[handedness] ?? '#f472b6',
-        )
+        drawHand(ctx, landmarks, tracker.connections, canvas.width, canvas.height, latestColors[i])
       })
 
       onHandsRef.current?.(hands)
@@ -133,6 +133,7 @@ export function useHandTracking(
 function drawHand(
   ctx: CanvasRenderingContext2D,
   landmarks: NormalizedLandmark[],
+  connections: HandConnection[],
   w: number,
   h: number,
   color: string,
@@ -140,7 +141,7 @@ function drawHand(
   ctx.strokeStyle = color
   ctx.lineWidth = Math.max(2, w / 320)
   ctx.beginPath()
-  for (const { start, end } of HAND_CONNECTIONS) {
+  for (const { start, end } of connections) {
     const a = landmarks[start]
     const b = landmarks[end]
     if (!a || !b) continue

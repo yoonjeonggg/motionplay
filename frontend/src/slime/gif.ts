@@ -1,5 +1,5 @@
 import type { Application } from 'pixi.js'
-import { applyPalette, GIFEncoder, quantize, type Palette } from 'gifenc'
+import type { Palette } from 'gifenc'
 
 const GIF_MAX_COLORS = 256
 
@@ -22,6 +22,8 @@ export async function recordStageGif(
   app: Application,
   { durationMs, fps, background, cancelled }: RecordOptions,
 ): Promise<Blob | null> {
+  // Loaded on first recording; most sessions never export a GIF.
+  const { applyPalette, GIFEncoder, quantize } = await import('gifenc')
   const frameDelay = Math.round(1000 / fps)
   const frameCount = Math.max(2, Math.round(durationMs / frameDelay))
   const gif = GIFEncoder()
