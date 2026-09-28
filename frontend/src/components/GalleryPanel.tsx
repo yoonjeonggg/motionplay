@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, FolderOpen, Share2, Trash2 } from 'lucide-react'
 import type { Creation, CreationInput } from '../api/client'
 import { toCssHex } from '../slime/color'
@@ -19,6 +19,10 @@ export function GalleryPanel({ getCurrent, onLoad }: Props) {
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
   const [copiedId, setCopiedId] = useState<number | null>(null)
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // Logging out unmounts the panel; don't leave the "copied" timer running.
+  useEffect(() => () => clearTimeout(copiedTimer.current), [])
 
   const authed = authStatus === 'authed'
 
@@ -50,7 +54,8 @@ export function GalleryPanel({ getCurrent, onLoad }: Props) {
       return
     }
     setCopiedId(c.id)
-    setTimeout(() => setCopiedId((cur) => (cur === c.id ? null : cur)), 1500)
+    clearTimeout(copiedTimer.current)
+    copiedTimer.current = setTimeout(() => setCopiedId(null), 1500)
   }
 
   return (
