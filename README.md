@@ -25,7 +25,14 @@ go run ./cmd/server
 Needs a reachable PostgreSQL. The bundled `docker-compose.yml` maps it to
 `localhost:5433` to avoid clashing with a system Postgres on 5432; the
 `.env.example` `DATABASE_URL` already points there. `go test ./...` runs
-without a database.
+without a database; repository integration tests additionally run against a
+disposable Postgres when `TEST_DATABASE_URL` is set (they drop tables — never
+point it at real data):
+
+```bash
+docker run --rm -d --name mp-it-pg -p 55432:5432 -e POSTGRES_PASSWORD=it postgres:16
+TEST_DATABASE_URL="postgres://postgres:it@localhost:55432/postgres?sslmode=disable" go test ./...
+```
 
 ### API
 

@@ -128,7 +128,7 @@ func (h *Handler) get(c *gin.Context) {
 	}
 	item, err := h.store.ByIDForUser(id, userID)
 	if err != nil {
-		httpx.Error(c, http.StatusNotFound, "creation not found")
+		storeError(c, err, "could not load creation")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"creation": item})
@@ -154,7 +154,7 @@ func (h *Handler) update(c *gin.Context) {
 
 	item, err := h.store.ByIDForUser(id, userID)
 	if err != nil {
-		httpx.Error(c, http.StatusNotFound, "creation not found")
+		storeError(c, err, "could not load creation")
 		return
 	}
 	item.Title = strings.TrimSpace(body.Title)
@@ -175,11 +175,7 @@ func (h *Handler) remove(c *gin.Context) {
 		return
 	}
 	if err := h.store.Delete(id, userID); err != nil {
-		if errors.Is(err, ErrNotFound) {
-			httpx.Error(c, http.StatusNotFound, "creation not found")
-			return
-		}
-		httpx.Error(c, http.StatusInternalServerError, "could not delete creation")
+		storeError(c, err, "could not delete creation")
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -193,11 +189,7 @@ func (h *Handler) share(c *gin.Context) {
 	}
 	item, err := h.store.EnsureShareSlug(id, userID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			httpx.Error(c, http.StatusNotFound, "creation not found")
-			return
-		}
-		httpx.Error(c, http.StatusInternalServerError, "could not create share link")
+		storeError(c, err, "could not create share link")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"shareSlug": *item.ShareSlug})
@@ -212,7 +204,11 @@ func (h *Handler) getShared(c *gin.Context) {
 	}
 	item, err := h.store.ByShareSlug(slug)
 	if err != nil {
-		httpx.Error(c, http.StatusNotFound, "shared creation not found")
+		if errors.Is(err, ErrNotFound) {
+			httpx.Error(c, http.StatusNotFound, "shared creation not found")
+			return
+		}
+		httpx.Error(c, http.StatusInternalServerError, "could not load shared creation")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"creation": SharedView{
@@ -221,6 +217,16 @@ func (h *Handler) getShared(c *gin.Context) {
 		Softness: item.Softness,
 		Toppings: item.Toppings,
 	}})
+}
+
+// storeError answers 404 for a missing (or someone else's) creation and 500
+// for anything else, so a database outage isn't reported as "not found".
+func storeError(c *gin.Context, err error, failMsg string) {
+	if errors.Is(err, ErrNotFound) {
+		httpx.Error(c, http.StatusNotFound, "creation not found")
+		return
+	}
+	httpx.Error(c, http.StatusInternalServerError, failMsg)
 }
 
 func parseID(c *gin.Context) (uint, bool) {

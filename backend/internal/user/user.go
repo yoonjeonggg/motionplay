@@ -6,9 +6,14 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"motionplay/backend/internal/store"
 )
 
-var ErrNotFound = errors.New("user not found")
+var (
+	ErrNotFound   = errors.New("user not found")
+	ErrEmailTaken = errors.New("email already registered")
+)
 
 type User struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
@@ -27,37 +32,21 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// Create inserts u, returning ErrEmailTaken if the address is in use. The
+// unique index decides this atomically; a separate "is it taken?" query
+// first would let two concurrent signups both pass the check.
 func (r *Repository) Create(u *User) error {
-	return r.db.Create(u).Error
+	err := r.db.Create(u).Error
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return ErrEmailTaken
+	}
+	return err
 }
 
 func (r *Repository) ByEmail(email string) (*User, error) {
-	var u User
-	err := r.db.Where("email = ?", email).First(&u).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
+	return store.First[User](r.db.Where("email = ?", email), ErrNotFound)
 }
 
 func (r *Repository) ByID(id uint) (*User, error) {
-	var u User
-	err := r.db.First(&u, id).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
-}
-
-// EmailTaken reports whether an account already uses the address.
-func (r *Repository) EmailTaken(email string) (bool, error) {
-	var count int64
-	err := r.db.Model(&User{}).Where("email = ?", email).Count(&count).Error
-	return count > 0, err
+	return store.First[User](r.db.Where("id = ?", id), ErrNotFound)
 }

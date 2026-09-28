@@ -78,3 +78,17 @@ func TestTokenRejectsOtherAlgorithmsAndMissingExpiry(t *testing.T) {
 		}
 	}
 }
+
+func TestTokenRejectsMalformedSubject(t *testing.T) {
+	secret := []byte("test-secret")
+	exp := jwt.NewNumericDate(time.Now().Add(time.Hour))
+	for _, sub := range []string{"12abc", "0", "-1", ""} {
+		tok, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{Subject: sub, ExpiresAt: exp}).SignedString(secret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := NewTokenIssuer(string(secret), time.Hour).Parse(tok); err == nil {
+			t.Errorf("subject %q was accepted", sub)
+		}
+	}
+}

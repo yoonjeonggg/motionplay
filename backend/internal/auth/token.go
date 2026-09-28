@@ -2,7 +2,7 @@ package auth
 
 import (
 	"errors"
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -24,7 +24,7 @@ func NewTokenIssuer(secret string, ttl time.Duration) *TokenIssuer {
 func (t *TokenIssuer) Issue(userID uint) (string, error) {
 	now := time.Now()
 	claims := jwt.RegisteredClaims{
-		Subject:   fmt.Sprintf("%d", userID),
+		Subject:   strconv.FormatUint(uint64(userID), 10),
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(t.ttl)),
 	}
@@ -47,9 +47,10 @@ func (t *TokenIssuer) Parse(tokenString string) (uint, error) {
 		return 0, ErrInvalidToken
 	}
 
-	var id uint
-	if _, err := fmt.Sscanf(claims.Subject, "%d", &id); err != nil || id == 0 {
+	// ParseUint, unlike Sscanf("%d"), rejects trailing junk like "12abc".
+	id, err := strconv.ParseUint(claims.Subject, 10, 0)
+	if err != nil || id == 0 {
 		return 0, ErrInvalidToken
 	}
-	return id, nil
+	return uint(id), nil
 }

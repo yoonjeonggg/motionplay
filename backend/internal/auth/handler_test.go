@@ -25,6 +25,9 @@ func newFakeStore() *fakeStore {
 }
 
 func (f *fakeStore) Create(u *user.User) error {
+	if _, taken := f.byEmail[u.Email]; taken {
+		return user.ErrEmailTaken
+	}
 	u.ID = f.nextID
 	f.nextID++
 	u.CreatedAt = time.Now()
@@ -46,11 +49,6 @@ func (f *fakeStore) ByID(id uint) (*user.User, error) {
 		return u, nil
 	}
 	return nil, user.ErrNotFound
-}
-
-func (f *fakeStore) EmailTaken(email string) (bool, error) {
-	_, ok := f.byEmail[email]
-	return ok, nil
 }
 
 func newTestRouter() *gin.Engine {

@@ -18,6 +18,9 @@ func Open(dsn string) (*gorm.DB, error) {
 	gdb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger:                 logger.Default.LogMode(logger.Warn),
 		SkipDefaultTransaction: true,
+		// Map driver errors (e.g. unique violations) to gorm.ErrDuplicatedKey
+		// and friends, so repositories can check them portably.
+		TranslateError: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open postgres: %w", err)

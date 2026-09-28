@@ -17,7 +17,6 @@ type UserStore interface {
 	Create(*user.User) error
 	ByEmail(string) (*user.User, error)
 	ByID(uint) (*user.User, error)
-	EmailTaken(string) (bool, error)
 }
 
 type Handler struct {
@@ -53,17 +52,7 @@ func (h *Handler) signup(c *gin.Context) {
 		httpx.Error(c, http.StatusBadRequest, "email and password (min 8 chars) are required")
 		return
 	}
-	email := strings.ToLower(strings.TrimSpace(body.Email))
-
-	taken, err := h.users.EmailTaken(email)
-	if err != nil {
-		httpx.Error(c, http.StatusInternalServerError, "could not check email")
-		return
-	}
-	if taken {
-		httpx.Error(c, http.StatusConflict, "email already registered")
-		return
-	}
+	email := normalizeEmail(body.Email)
 
 	hash, err := hashPassword(body.Password)
 	if err != nil {
@@ -73,6 +62,10 @@ func (h *Handler) signup(c *gin.Context) {
 
 	u := &user.User{Email: email, PasswordHash: hash}
 	if err := h.users.Create(u); err != nil {
+		if errors.Is(err, user.ErrEmailTaken) {
+			httpx.Error(c, http.StatusConflict, "email already registered")
+			return
+		}
 		httpx.Error(c, http.StatusInternalServerError, "could not create account")
 		return
 	}
@@ -86,9 +79,8 @@ func (h *Handler) login(c *gin.Context) {
 		httpx.Error(c, http.StatusBadRequest, "email and password are required")
 		return
 	}
-	email := strings.ToLower(strings.TrimSpace(body.Email))
 
-	u, err := h.users.ByEmail(email)
+	u, err := h.users.ByEmail(normalizeEmail(body.Email))
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
 			// Burn the same bcrypt time as a real check, so response timing
@@ -120,6 +112,10 @@ func (h *Handler) me(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": u})
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
 
 func (h *Handler) respondWithToken(c *gin.Context, status int, u *user.User) {

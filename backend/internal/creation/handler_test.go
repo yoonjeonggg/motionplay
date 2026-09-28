@@ -3,6 +3,7 @@ package creation
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -304,5 +305,31 @@ func TestValidShareSlug(t *testing.T) {
 		if validShareSlug(bad) {
 			t.Errorf("validShareSlug(%q) = true", bad)
 		}
+	}
+}
+
+// brokenStore fails every lookup the way an unreachable database would.
+type brokenStore struct{ *fakeStore }
+
+var errDBDown = errors.New("connection refused")
+
+func (brokenStore) ByIDForUser(uint, uint) (*Creation, error) { return nil, errDBDown }
+func (brokenStore) ByShareSlug(string) (*Creation, error)     { return nil, errDBDown }
+
+func TestStoreFailureIsNotReportedAsNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	issuer := auth.NewTokenIssuer("test-secret", time.Hour)
+	h := NewHandler(brokenStore{newFakeStore()})
+	r := gin.New()
+	h.Routes(r.Group("/creations"), auth.Middleware(issuer))
+	h.PublicRoutes(r.Group("/share"))
+	tok, _ := issuer.Issue(1)
+
+	if rec := req(t, r, http.MethodGet, "/creations/1", tok, nil); rec.Code != http.StatusInternalServerError {
+		t.Errorf("get status %d, want 500", rec.Code)
+	}
+	slug, _ := newShareSlug()
+	if rec := req(t, r, http.MethodGet, "/share/"+slug, "", nil); rec.Code != http.StatusInternalServerError {
+		t.Errorf("shared status %d, want 500", rec.Code)
 	}
 }

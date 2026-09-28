@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"motionplay/backend/internal/store"
 )
 
 var ErrNotFound = errors.New("creation not found")
@@ -90,15 +92,7 @@ func (r *Repository) ListByUser(userID uint) ([]Creation, error) {
 
 // ByIDForUser returns the creation only if it belongs to the user.
 func (r *Repository) ByIDForUser(id, userID uint) (*Creation, error) {
-	var c Creation
-	err := r.db.Where("id = ? AND user_id = ?", id, userID).First(&c).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &c, nil
+	return store.First[Creation](r.db.Where("id = ? AND user_id = ?", id, userID), ErrNotFound)
 }
 
 func (r *Repository) Update(c *Creation) error {
@@ -120,15 +114,7 @@ func (r *Repository) Delete(id, userID uint) error {
 
 // ByShareSlug looks up a creation by its public share link, regardless of owner.
 func (r *Repository) ByShareSlug(slug string) (*Creation, error) {
-	var c Creation
-	err := r.db.Where("share_slug = ?", slug).First(&c).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &c, nil
+	return store.First[Creation](r.db.Where("share_slug = ?", slug), ErrNotFound)
 }
 
 // EnsureShareSlug returns the owner's creation with a share slug set, minting
@@ -145,8 +131,18 @@ func (r *Repository) EnsureShareSlug(id, userID uint) (*Creation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("generate share slug: %w", err)
 	}
-	if err := r.db.Model(c).Update("share_slug", slug).Error; err != nil {
-		return nil, err
+	// Only set it if still unset. Two concurrent share requests would
+	// otherwise each write their own slug, and whoever copied the first
+	// link would end up with a dead one.
+	res := r.db.Model(&Creation{}).
+		Where("id = ? AND share_slug IS NULL", c.ID).
+		Update("share_slug", slug)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		// Lost the race: return the slug the other request stored.
+		return r.ByIDForUser(id, userID)
 	}
 	c.ShareSlug = &slug
 	return c, nil
