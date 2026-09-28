@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { Application, BlurFilter, Container, FillGradient, Graphics } from 'pixi.js'
+import {
+  Application,
+  BlurFilter,
+  Container,
+  FillGradient,
+  Graphics,
+  GraphicsContext,
+} from 'pixi.js'
 import { applyPalette, GIFEncoder, quantize, type Palette } from 'gifenc'
 import {
-  drawTopping,
+  createToppingContext,
   isToppingKind,
   type ToppingKind,
-  TOPPING_COLORS,
+  TOPPING_KINDS,
+  TOPPING_SIZE,
   ToppingField,
   type ToppingSpec,
 } from './toppings'
+import { DEFAULT_SLIME_COLOR } from './palette'
 import { type Vec2, VerletBlob } from './verletBlob'
 
 /** Imperative handle used to drive the slime from pointer or hand input. */
@@ -43,8 +52,14 @@ export type SlimeController = {
   recordGif: (durationMs?: number, fps?: number) => Promise<boolean>
 }
 
-const GIF_BACKGROUND = '#0a0a12'
 const GIF_MAX_COLORS = 256
+const HELD_TOPPING_SIZE = 18
+const HELD_TOPPING_ALPHA = 0.65
+
+/** GIFs have no alpha, so frames are flattened onto the page's current background. */
+function pageBackground(): string {
+  return getComputedStyle(document.body).backgroundColor || '#111113'
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -56,7 +71,6 @@ type UseSlimeResult = {
   ready: boolean
 }
 
-const DEFAULT_COLOR = 0x7cf29c
 const SLIME_ALPHA = 0.92
 
 /** Maps a 0..1 softness slider onto the blob's spring/damping feel. */
@@ -127,7 +141,7 @@ export function useSlime(): UseSlimeResult {
       { cx: view.w / 2, cy: view.h * 0.5, radius: Math.min(view.w, view.h) * 0.22 },
       { w: view.w, h: view.h },
     )
-    let color = DEFAULT_COLOR
+    let color = DEFAULT_SLIME_COLOR
     let bodyGradient = createBodyGradient(color)
     const field = new ToppingField()
     let held: { kind: ToppingKind; pos: Vec2 } | null = null
@@ -144,11 +158,12 @@ export function useSlime(): UseSlimeResult {
         // once from the first frame and reuse it: re-quantizing every frame
         // was the dominant cost of recording and made frame colours drift.
         let palette: Palette | null = null
+        const clearColor = pageBackground()
         for (let i = 0; i < frameCount; i++) {
           const { pixels, width, height } = app.renderer.extract.pixels({
             target: app.stage,
             resolution: 1,
-            clearColor: GIF_BACKGROUND,
+            clearColor,
           })
           palette ??= quantize(pixels, GIF_MAX_COLORS)
           const index = applyPalette(pixels, palette)
@@ -176,11 +191,65 @@ export function useSlime(): UseSlimeResult {
       draw()
     }
 
+    // One shared shape per topping kind; each stuck topping is a Graphics
+    // that only gets moved per frame. Clearing and re-drawing every topping
+    // each frame (re-tessellating it) measured ~18x slower at 40 toppings.
+    const toppingContexts = Object.fromEntries(
+      TOPPING_KINDS.map((k) => [k, createToppingContext(k)]),
+    ) as Record<ToppingKind, GraphicsContext>
+    // White, so the containing layer's tint gives it the slime's colour.
+    const socketContext = new GraphicsContext()
+      .ellipse(0, 0, TOPPING_SIZE * 1.3, TOPPING_SIZE * 1.05)
+      .fill({ color: 0xffffff, alpha: 0.4 })
+    const toppingIcons: Graphics[] = []
+    const toppingSockets: Graphics[] = []
+
     let shadow: Graphics
     let body: Graphics
-    let socket: Graphics
+    let socketLayer: Container
     let gloss: Graphics
-    let toppingGfx: Graphics
+    let toppingLayer: Container
+    let heldIcon: Graphics
+
+    /** Position (and lazily create) one icon + socket per topping; hide the rest. */
+    const syncToppings = () => {
+      const list = field.list
+      for (let i = 0; i < list.length; i++) {
+        const t = list[i]
+        const ctx = toppingContexts[t.kind]
+        let icon = toppingIcons[i]
+        let socket = toppingSockets[i]
+        if (!icon) {
+          icon = toppingLayer.addChild(new Graphics(ctx))
+          socket = socketLayer.addChild(new Graphics(socketContext))
+          toppingIcons.push(icon)
+          toppingSockets.push(socket)
+        }
+        if (icon.context !== ctx) icon.context = ctx
+        const a = blob.points[t.anchorIndex] ?? blob.points[0]
+        const x = a.x + t.offset.x
+        const y = a.y + t.offset.y
+        const scale = t.size / TOPPING_SIZE
+        icon.position.set(x, y)
+        icon.scale.set(scale)
+        icon.visible = true
+        socket.position.set(x, y)
+        socket.scale.set(scale)
+        socket.visible = true
+      }
+      for (let i = list.length; i < toppingIcons.length; i++) {
+        toppingIcons[i].visible = false
+        toppingSockets[i].visible = false
+      }
+
+      heldIcon.visible = held !== null
+      if (held) {
+        const ctx = toppingContexts[held.kind]
+        if (heldIcon.context !== ctx) heldIcon.context = ctx
+        heldIcon.position.set(held.pos.x, held.pos.y)
+      }
+    }
+
     const draw = () => {
       const pts = blob.points
       let minX = Infinity
@@ -222,17 +291,6 @@ export function useSlime(): UseSlimeResult {
       // reads as translucent goo with some thickness rather than a painted ball.
       body.fill({ fill: bodyGradient, alpha: SLIME_ALPHA })
 
-      // Toppings sit in a soft, blurred "socket" — the same colour family as
-      // the body, folded around the topping's footprint — so they look
-      // pressed into the goo instead of stuck on top like stickers. This
-      // lives in the blurred layer, under the crisp topping icons.
-      socket.clear()
-      for (const t of field.list) {
-        const p = field.positionOf(t, blob)
-        socket.ellipse(p.x, p.y, t.size * 1.3, t.size * 1.05)
-        socket.fill({ color: darken(color, 0.3), alpha: 0.4 })
-      }
-
       // Wide soft sheen plus a small tight highlight for a wet-glass shine,
       // both scaled to the blob's current (squished) size.
       const hlX = cx - rx * 0.32
@@ -243,22 +301,7 @@ export function useSlime(): UseSlimeResult {
       gloss.ellipse(hlX - rx * 0.06, hlY - ry * 0.08, rx * 0.1, ry * 0.07)
       gloss.fill({ color: 0xffffff, alpha: 0.55 })
 
-      toppingGfx.clear()
-      for (const t of field.list) {
-        const p = field.positionOf(t, blob)
-        drawTopping(toppingGfx, t.kind, p.x, p.y, t.size, TOPPING_COLORS[t.kind])
-      }
-      if (held) {
-        drawTopping(
-          toppingGfx,
-          held.kind,
-          held.pos.x,
-          held.pos.y,
-          18,
-          TOPPING_COLORS[held.kind],
-          0.65,
-        )
-      }
+      syncToppings()
     }
 
     // init() returns a promise; keep a handle so teardown always runs *after*
@@ -280,14 +323,21 @@ export function useSlime(): UseSlimeResult {
         layer.filters = [new BlurFilter({ strength: 5, quality: 2 })]
         shadow = new Graphics()
         body = new Graphics()
-        socket = new Graphics()
+        // Toppings sit in a soft, blurred "socket" — the same colour family
+        // as the body, folded around the topping's footprint — so they look
+        // pressed into the goo instead of stuck on top like stickers.
+        socketLayer = new Container()
+        socketLayer.tint = darken(color, 0.3)
         gloss = new Graphics()
-        layer.addChild(shadow, body, socket, gloss)
-        // Toppings sit above the gooey blur layer so their icons stay crisp
-        // (the soft "socket" halo that makes them look embedded lives in
-        // `layer` above, so it gets blurred together with the body).
-        toppingGfx = new Graphics()
-        app.stage.addChild(layer, toppingGfx)
+        layer.addChild(shadow, body, socketLayer, gloss)
+        // Topping icons sit above the gooey blur layer so they stay crisp.
+        toppingLayer = new Container()
+        heldIcon = new Graphics(toppingContexts[TOPPING_KINDS[0]])
+        heldIcon.alpha = HELD_TOPPING_ALPHA
+        heldIcon.scale.set(HELD_TOPPING_SIZE / TOPPING_SIZE)
+        heldIcon.visible = false
+        toppingLayer.addChild(heldIcon)
+        app.stage.addChild(layer, toppingLayer)
 
         app.ticker.add((t) => tick(t.deltaMS))
 
@@ -301,6 +351,7 @@ export function useSlime(): UseSlimeResult {
             color = rgb
             bodyGradient.destroy()
             bodyGradient = createBodyGradient(rgb)
+            socketLayer.tint = darken(rgb, 0.3)
           },
           setSoftness: (v) => blob.setParams(softnessToParams(v)),
           addTopping: (kind, pos) => field.add(kind, pos, blob),
@@ -364,6 +415,10 @@ export function useSlime(): UseSlimeResult {
         } catch {
           /* already gone */
         }
+        // Shared contexts aren't owned by any single Graphics, so free them
+        // once the Graphics that reference them are destroyed.
+        for (const ctx of Object.values(toppingContexts)) ctx.destroy()
+        socketContext.destroy()
       })
     }
   }, [])

@@ -1,6 +1,5 @@
-import type { Graphics } from 'pixi.js'
-import type { Vec2 } from './verletBlob'
-import type { VerletBlob } from './verletBlob'
+import { GraphicsContext } from 'pixi.js'
+import type { Vec2, VerletBlob } from './verletBlob'
 
 export const TOPPING_KINDS = ['star', 'heart', 'pearl'] as const
 export type ToppingKind = (typeof TOPPING_KINDS)[number]
@@ -10,6 +9,9 @@ export const TOPPING_COLORS: Record<ToppingKind, number> = {
   heart: 0xfb7185,
   pearl: 0xf5f3ff,
 }
+
+/** Size toppings are attached at; shared shape contexts are built at this size. */
+export const TOPPING_SIZE = 16
 
 export type Topping = {
   id: number
@@ -26,7 +28,7 @@ export class ToppingField {
   readonly list: Topping[] = []
   private nextId = 1
 
-  add(kind: ToppingKind, pos: Vec2, blob: VerletBlob, size = 16) {
+  add(kind: ToppingKind, pos: Vec2, blob: VerletBlob, size = TOPPING_SIZE) {
     const pts = blob.points
     let best = 0
     let bestD = Infinity
@@ -74,42 +76,44 @@ export function isToppingKind(v: string): v is ToppingKind {
   return (TOPPING_KINDS as readonly string[]).includes(v)
 }
 
-/** Draw one topping shape onto a Graphics at (x, y). Caller sets no transform. */
-export function drawTopping(
-  g: Graphics,
+/**
+ * Build one topping shape, centred on the origin, as a reusable context.
+ * Renderers share one context per kind across every topping of that kind and
+ * only move/scale the Graphics that display it, so the shape is tessellated
+ * once instead of being rebuilt every frame.
+ */
+export function createToppingContext(
   kind: ToppingKind,
-  x: number,
-  y: number,
-  size: number,
-  color: number,
-  alpha = 1,
-) {
+  size = TOPPING_SIZE,
+  color = TOPPING_COLORS[kind],
+): GraphicsContext {
+  const g = new GraphicsContext()
+
   if (kind === 'pearl') {
-    g.circle(x, y, size * 0.7).fill({ color, alpha })
-    g.circle(x - size * 0.22, y - size * 0.22, size * 0.22).fill({
+    g.circle(0, 0, size * 0.7).fill({ color })
+    g.circle(-size * 0.22, -size * 0.22, size * 0.22).fill({
       color: 0xffffff,
-      alpha: alpha * 0.8,
+      alpha: 0.8,
     })
-    return
+    return g
   }
 
   if (kind === 'star') {
     const spikes = 5
     const outer = size * 0.9
     const inner = size * 0.38
-    g.moveTo(x, y - outer)
+    g.moveTo(0, -outer)
     for (let i = 1; i < spikes * 2; i++) {
       const r = i % 2 === 0 ? outer : inner
       const a = -Math.PI / 2 + (i * Math.PI) / spikes
-      g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r)
+      g.lineTo(Math.cos(a) * r, Math.sin(a) * r)
     }
-    g.closePath().fill({ color, alpha })
-    return
+    return g.closePath().fill({ color })
   }
 
   // heart — parametric curve, sampled
   const s = size / 17
-  g.moveTo(x, y + 5 * s)
+  g.moveTo(0, 5 * s)
   for (let i = 1; i <= 40; i++) {
     const t = (i / 40) * Math.PI * 2
     const hx = 16 * Math.sin(t) ** 3
@@ -118,7 +122,7 @@ export function drawTopping(
       5 * Math.cos(2 * t) -
       2 * Math.cos(3 * t) -
       Math.cos(4 * t)
-    g.lineTo(x + hx * s, y - hy * s)
+    g.lineTo(hx * s, -hy * s)
   }
-  g.closePath().fill({ color, alpha })
+  return g.closePath().fill({ color })
 }

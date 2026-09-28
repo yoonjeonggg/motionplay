@@ -54,6 +54,7 @@ export function useHandTracking(
     let frames = 0
     let fpsWindowStart = performance.now()
     let lastHandCount = -1
+    let cachedCtx: CanvasRenderingContext2D | null = null
 
     const drawFrame = (now: number) => {
       if (cancelled) return
@@ -67,7 +68,7 @@ export function useHandTracking(
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
       }
-      const ctx = canvas.getContext('2d')
+      const ctx = (cachedCtx ??= canvas.getContext('2d'))
       if (!ctx) return
 
       const result = tracker.detect(video, now)
@@ -150,11 +151,15 @@ function drawHand(
   }
   ctx.stroke()
 
+  // All joints in one path + one fill, instead of a fill per joint.
   ctx.fillStyle = color
   const r = Math.max(3, w / 220)
+  ctx.beginPath()
   for (const point of landmarks) {
-    ctx.beginPath()
-    ctx.arc(point.x * w, point.y * h, r, 0, Math.PI * 2)
-    ctx.fill()
+    const x = point.x * w
+    const y = point.y * h
+    ctx.moveTo(x + r, y)
+    ctx.arc(x, y, r, 0, Math.PI * 2)
   }
+  ctx.fill()
 }
