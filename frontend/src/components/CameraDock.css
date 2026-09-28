@@ -132,10 +132,12 @@
 }
 
 @media (max-width: 640px) {
+  /* An explicit width, not max-width: the pip is width: 100% with no
+     intrinsic size, so under max-width alone it collapsed to 0px. */
   .camera-dock {
     top: 12px;
     right: 12px;
-    max-width: calc(44vw - 18px);
+    width: calc(44vw - 18px);
   }
 
   .pip,
