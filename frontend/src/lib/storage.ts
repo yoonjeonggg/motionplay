@@ -17,3 +17,11 @@ export function writeStorage(key: string, value: string) {
     /* private mode / disabled storage */
   }
 }
+
+export function removeStorage(key: string) {
+  try {
+    globalThis.localStorage?.removeItem(key)
+  } catch {
+    /* private mode / disabled storage */
+  }
+}

@@ -95,23 +95,8 @@ export class VerletBlob {
     }
   }
 
-  /** Centroid of the blob. */
-  center(): Vec2 {
-    let x = 0
-    let y = 0
-    for (const p of this.points) {
-      x += p.x
-      y += p.y
-    }
-    return { x: x / this.points.length, y: y / this.points.length }
-  }
-
-  area(): number {
-    return this.areaAndCenter().area
-  }
-
   /**
-   * area() and center() together in one pass over the points, instead of two.
+   * Area and centroid together in one pass over the points, instead of two.
    * solvePressure() needs both every constraint iteration (12x/frame), so the
    * saved traversal is the dominant cost of the physics step.
    */

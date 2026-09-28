@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, FolderOpen, Share2, Trash2 } from 'lucide-react'
 import type { Creation, CreationInput } from '../api/client'
+import { toCssHex } from '../slime/color'
 import { useAuthStore } from '../store/authStore'
 import { useCreationsStore } from '../store/creationsStore'
 import './GalleryPanel.css'
@@ -87,7 +88,7 @@ export function GalleryPanel({ getCurrent, onLoad }: Props) {
           <li key={c.id} className="gallery-item">
             <span
               className="gallery-item-color"
-              style={{ background: `#${c.color.toString(16).padStart(6, '0')}` }}
+              style={{ background: toCssHex(c.color) }}
               aria-hidden
             />
             <span className="gallery-item-title" title={c.title}>

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { api as defaultApi, ApiError, type ApiClient, type AuthUser } from '../api/client'
+import { api as defaultApi, type ApiClient, type AuthUser, errorMessage } from '../api/client'
 
 export type AuthStatus = 'idle' | 'loading' | 'authed' | 'anon'
 
@@ -25,9 +25,7 @@ export function createAuthStore(api: ApiClient) {
         set({ user, status: 'authed', error: null })
         return true
       } catch (err) {
-        const message =
-          err instanceof ApiError ? err.message : '알 수 없는 오류가 발생했습니다.'
-        set({ user: null, status: 'anon', error: message })
+        set({ user: null, status: 'anon', error: errorMessage(err) })
         return false
       }
     }

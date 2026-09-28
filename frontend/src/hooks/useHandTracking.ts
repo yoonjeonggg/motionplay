@@ -20,8 +20,8 @@ const HANDEDNESS_COLORS: Record<string, string> = {
 
 /**
  * Runs the MediaPipe hand tracker against a live <video> and paints the
- * detected skeleton onto an overlay canvas. Detection results are also kept in
- * a ref for later consumers (slime physics) without forcing per-frame renders.
+ * detected skeleton onto an overlay canvas. Each frame's hands go to `onHands`
+ * (the slime driver) directly, without forcing per-frame React renders.
  */
 export function useHandTracking(
   videoRef: React.RefObject<HTMLVideoElement | null>,
@@ -29,9 +29,6 @@ export function useHandTracking(
   onHands?: (hands: NormalizedLandmark[][]) => void,
 ): UseHandTrackingResult {
   const overlayRef = useRef<HTMLCanvasElement | null>(null)
-  const trackerRef = useRef<HandTracker | null>(null)
-  const rafRef = useRef(0)
-  const latestLandmarksRef = useRef<NormalizedLandmark[][]>([])
 
   // Keep the callback in a ref so a new closure each render doesn't restart
   // the tracker.
@@ -49,7 +46,10 @@ export function useHandTracking(
     if (!enabled) return
     let cancelled = false
     const tracker = new HandTracker()
-    trackerRef.current = tracker
+    let raf = 0
+    // Last detection, kept so frames where the video hasn't advanced still
+    // redraw (and report) the most recent hands.
+    let latestHands: NormalizedLandmark[][] = []
 
     let frames = 0
     let fpsWindowStart = performance.now()
@@ -58,7 +58,7 @@ export function useHandTracking(
 
     const drawFrame = (now: number) => {
       if (cancelled) return
-      rafRef.current = requestAnimationFrame(drawFrame)
+      raf = requestAnimationFrame(drawFrame)
 
       const video = videoRef.current
       const canvas = overlayRef.current
@@ -73,14 +73,14 @@ export function useHandTracking(
 
       const result = tracker.detect(video, now)
       if (result) {
-        latestLandmarksRef.current = result.landmarks
+        latestHands = result.landmarks
         if (result.landmarks.length !== lastHandCount) {
           lastHandCount = result.landmarks.length
           setHandCount(result.landmarks.length)
         }
       }
 
-      const hands = latestLandmarksRef.current
+      const hands = latestHands
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       // The canvas is mirrored in CSS to match the selfie-view video, so
       // landmarks are drawn in raw frame coordinates here.
@@ -110,7 +110,7 @@ export function useHandTracking(
       .then(() => {
         if (cancelled) return
         setStatus('ready')
-        rafRef.current = requestAnimationFrame(drawFrame)
+        raf = requestAnimationFrame(drawFrame)
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -120,10 +120,8 @@ export function useHandTracking(
 
     return () => {
       cancelled = true
-      cancelAnimationFrame(rafRef.current)
+      cancelAnimationFrame(raf)
       tracker.close()
-      trackerRef.current = null
-      latestLandmarksRef.current = []
       setHandCount(0)
       setFps(0)
     }

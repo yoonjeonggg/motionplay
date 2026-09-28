@@ -1,4 +1,5 @@
 import { Circle, Hand, Heart, type LucideIcon, Sparkles, Star } from 'lucide-react'
+import { toCssHex } from '../slime/color'
 import { SLIME_COLORS } from '../slime/palette'
 import { type ToppingKind, TOPPING_KINDS } from '../slime/toppings'
 import './SlimePanel.css'
@@ -44,7 +45,7 @@ export function SlimePanel({
               key={c.name}
               type="button"
               className="swatch"
-              style={{ background: c.css }}
+              style={{ background: toCssHex(c.rgb) }}
               title={c.name}
               aria-label={c.name}
               aria-pressed={c.rgb === color}

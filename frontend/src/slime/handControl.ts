@@ -70,6 +70,15 @@ const DEFAULTS: Required<DriverConfig> = {
   pinchOff: 0.8,
 }
 
+/**
+ * Hysteresis switch for a value that engages when it drops below `on` and
+ * only releases once it rises above `off` (> on), so jitter around a single
+ * threshold doesn't make a gesture flicker.
+ */
+function latch(active: boolean, value: number, on: number, off: number): boolean {
+  return active ? value <= off : value < on
+}
+
 /** Per-hand gesture readout, surfaced for on-screen feedback. */
 export type HandGesture = {
   gripping: boolean
@@ -93,11 +102,58 @@ export function createHandSlimeDriver(
   const states = new Map<number, HandState>()
   let selectedTopping: ToppingKind = 'star'
 
+  // Whether the last reported gesture list was empty, so "no hands" is sent
+  // once instead of every frame.
+  let reportedEmpty = false
+
   const reset = () => {
     states.clear()
     const ctrl = getController()
     ctrl?.release()
     ctrl?.setHeldTopping(null, null)
+  }
+
+  /** Advance one hand's state and apply its effect. Returns its gesture. */
+  const stepHand = (
+    ctrl: SlimeController,
+    index: number,
+    sample: HandSample,
+    toCanvas: (n: Vec2) => Vec2,
+  ): HandGesture => {
+    const cur = toCanvas(sample.palm)
+    const state = states.get(index) ?? { prevPalm: cur, gripping: false, pinching: false }
+    states.set(index, state)
+    const delta = { x: cur.x - state.prevPalm.x, y: cur.y - state.prevPalm.y }
+    const prevPalm = state.prevPalm
+    state.prevPalm = cur
+
+    // Pinch takes priority: it carries a topping instead of touching slime.
+    const wasPinching = state.pinching
+    state.pinching = latch(state.pinching, sample.pinch, cfg.pinchOn, cfg.pinchOff)
+    if (state.pinching) {
+      ctrl.setHeldTopping(selectedTopping, toCanvas(sample.pinchPoint))
+    } else if (wasPinching) {
+      // pinch just released -> drop the topping here
+      ctrl.addTopping(selectedTopping, toCanvas(sample.pinchPoint))
+      ctrl.setHeldTopping(null, null)
+    } else {
+      state.gripping = latch(state.gripping, sample.openness, cfg.gripOn, cfg.gripOff)
+      if (state.gripping) {
+        ctrl.grab(prevPalm, delta, cfg.grabRadius)
+      } else {
+        const speed = Math.hypot(delta.x, delta.y)
+        if (speed > 0.8) {
+          ctrl.press(cur, cfg.pressRadius, Math.min(speed * 0.12, 7))
+        }
+      }
+    }
+
+    return {
+      gripping: state.gripping && !state.pinching && !wasPinching,
+      pinching: state.pinching,
+      openness: sample.openness,
+      pinch: sample.pinch,
+    }
   }
 
   const update = (hands: NormalizedLandmark[][]) => {
@@ -106,85 +162,28 @@ export function createHandSlimeDriver(
 
     if (hands.length === 0) {
       if (states.size > 0) reset()
-      onGestures?.([])
+      if (!reportedEmpty) onGestures?.([])
+      reportedEmpty = true
       return
     }
 
     const { w, h } = ctrl.size()
-    let anyGripping = false
-    const gestures: HandGesture[] = []
-
     // Mirror x to match the selfie-view the user sees.
     const toCanvas = (n: Vec2): Vec2 => ({ x: (1 - n.x) * w, y: n.y * h })
 
-    hands.forEach((lm, i) => {
-      const sample = analyzeHand(lm)
-      if (!sample) return
-
-      const cur = toCanvas(sample.palm)
-      const prev = states.get(i)
-      const state: HandState =
-        prev ?? { prevPalm: cur, gripping: false, pinching: false }
-
-      // Pinch takes priority: it carries a topping instead of touching slime.
-      const wasPinching = state.pinching
-      if (!state.pinching && sample.pinch < cfg.pinchOn) state.pinching = true
-      else if (state.pinching && sample.pinch > cfg.pinchOff) {
-        state.pinching = false
-      }
-
-      gestures.push({
-        gripping: false,
-        pinching: state.pinching,
-        openness: sample.openness,
-        pinch: sample.pinch,
-      })
-
-      if (state.pinching || wasPinching) {
-        const pt = toCanvas(sample.pinchPoint)
-        if (state.pinching) {
-          ctrl.setHeldTopping(selectedTopping, pt)
-        } else {
-          // pinch just released -> drop the topping here
-          ctrl.addTopping(selectedTopping, pt)
-          ctrl.setHeldTopping(null, null)
-        }
-        state.prevPalm = cur
-        states.set(i, state)
-        return
-      }
-
-      if (!state.gripping && sample.openness < cfg.gripOn) state.gripping = true
-      else if (state.gripping && sample.openness > cfg.gripOff) {
-        state.gripping = false
-      }
-      gestures[gestures.length - 1].gripping = state.gripping
-
-      const delta = {
-        x: cur.x - state.prevPalm.x,
-        y: cur.y - state.prevPalm.y,
-      }
-
-      if (state.gripping) {
-        anyGripping = true
-        ctrl.grab(state.prevPalm, delta, cfg.grabRadius)
-      } else {
-        const speed = Math.hypot(delta.x, delta.y)
-        if (speed > 0.8) {
-          ctrl.press(cur, cfg.pressRadius, Math.min(speed * 0.12, 7))
-        }
-      }
-
-      state.prevPalm = cur
-      states.set(i, state)
-    })
+    const gestures: HandGesture[] = []
+    for (let i = 0; i < hands.length; i++) {
+      const sample = analyzeHand(hands[i])
+      if (sample) gestures.push(stepHand(ctrl, i, sample, toCanvas))
+    }
 
     // Drop stale hands and release pins once nobody is holding on.
-    for (const key of [...states.keys()]) {
+    for (const key of states.keys()) {
       if (key >= hands.length) states.delete(key)
     }
-    if (!anyGripping) ctrl.release()
+    if (!gestures.some((g) => g.gripping)) ctrl.release()
 
+    reportedEmpty = gestures.length === 0
     onGestures?.(gestures)
   }
 

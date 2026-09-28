@@ -1,6 +1,8 @@
 // Thin typed client for the MotionPlay backend. The core is dependency-injected
 // (fetch + storage) so it can be exercised without a browser.
 
+import { readStorage, removeStorage, writeStorage } from '../lib/storage'
+
 export type AuthUser = {
   id: number
   email: string
@@ -49,6 +51,11 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
   }
+}
+
+/** User-facing message for any error thrown by the client. */
+export function errorMessage(err: unknown): string {
+  return err instanceof ApiError ? err.message : '알 수 없는 오류가 발생했습니다.'
 }
 
 const TOKEN_KEY = 'mp.token'
@@ -158,31 +165,14 @@ export function createApiClient({ baseUrl, storage, fetchImpl }: ClientOptions) 
 export type ApiClient = ReturnType<typeof createApiClient>
 
 const browserStorage: TokenStorage = {
-  get: (key) => {
-    try {
-      return globalThis.localStorage?.getItem(key) ?? null
-    } catch {
-      return null
-    }
-  },
-  set: (key, value) => {
-    try {
-      globalThis.localStorage?.setItem(key, value)
-    } catch {
-      /* private mode / disabled storage */
-    }
-  },
-  remove: (key) => {
-    try {
-      globalThis.localStorage?.removeItem(key)
-    } catch {
-      /* ignore */
-    }
-  },
+  get: readStorage,
+  set: writeStorage,
+  remove: removeStorage,
 }
 
+// `||` (not `??`) so an empty VITE_API_URL falls back too — matching the CSP
+// connect-src computed in vite.config.ts.
 const baseUrl =
-  (import.meta.env?.VITE_API_URL as string | undefined) ??
-  'http://localhost:8080'
+  (import.meta.env?.VITE_API_URL as string | undefined) || 'http://localhost:8080'
 
 export const api = createApiClient({ baseUrl, storage: browserStorage })

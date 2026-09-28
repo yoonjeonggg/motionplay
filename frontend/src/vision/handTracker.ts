@@ -33,10 +33,6 @@ export class HandTracker {
     })
   }
 
-  get ready(): boolean {
-    return this.landmarker !== null
-  }
-
   /**
    * Detect hands in the current video frame. Returns null when the frame has
    * not advanced since the last call (MediaPipe requires monotonic timestamps).

@@ -10,7 +10,6 @@ import {
 // Swaps Pixi's runtime-generated (new Function) shader/uniform code for
 // static versions, so the renderer works under our CSP without 'unsafe-eval'.
 import 'pixi.js/unsafe-eval'
-import { applyPalette, GIFEncoder, quantize, type Palette } from 'gifenc'
 import {
   createToppingContext,
   isToppingKind,
@@ -20,6 +19,8 @@ import {
   ToppingField,
   type ToppingSpec,
 } from './toppings'
+import { darken, lighten } from './color'
+import { downloadBlob, recordStageGif } from './gif'
 import { DEFAULT_SLIME_COLOR } from './palette'
 import { type Vec2, VerletBlob } from './verletBlob'
 
@@ -43,7 +44,6 @@ export type SlimeController = {
   snapshotToppings: () => ToppingSpec[]
   /** Replace all toppings from normalised specs (e.g. loading a saved slime). */
   loadToppings: (specs: { kind: string; x: number; y: number }[]) => void
-  center: () => Vec2
   /** Canvas size in CSS pixels. */
   size: () => { w: number; h: number }
   /** Download the current slime as a transparent PNG. */
@@ -55,17 +55,13 @@ export type SlimeController = {
   recordGif: (durationMs?: number, fps?: number) => Promise<boolean>
 }
 
-const GIF_MAX_COLORS = 256
 const HELD_TOPPING_SIZE = 18
 const HELD_TOPPING_ALPHA = 0.65
+const EXPORT_FILENAME = 'motionplay-slime'
 
-/** GIFs have no alpha, so frames are flattened onto the page's current background. */
+/** The page's current (theme) background, for exports that can't be transparent. */
 function pageBackground(): string {
   return getComputedStyle(document.body).backgroundColor || '#111113'
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 type UseSlimeResult = {
@@ -85,22 +81,6 @@ function softnessToParams(v: number) {
     damping: 0.8 + t * 0.13,
   }
 }
-
-/** Blend a 24-bit RGB colour toward `target` by `t` (0..1). */
-function mixColor(rgb: number, target: number, t: number): number {
-  const r1 = (rgb >> 16) & 0xff
-  const g1 = (rgb >> 8) & 0xff
-  const b1 = rgb & 0xff
-  const r2 = (target >> 16) & 0xff
-  const g2 = (target >> 8) & 0xff
-  const b2 = target & 0xff
-  const r = Math.round(r1 + (r2 - r1) * t)
-  const g = Math.round(g1 + (g2 - g1) * t)
-  const b = Math.round(b1 + (b2 - b1) * t)
-  return (r << 16) | (g << 8) | b
-}
-const lighten = (rgb: number, t: number) => mixColor(rgb, 0xffffff, t)
-const darken = (rgb: number, t: number) => mixColor(rgb, 0x000000, t)
 
 /**
  * A radial gradient standing in for subsurface light scattering: bright near
@@ -154,34 +134,14 @@ export function useSlime(): UseSlimeResult {
       if (gifBusy || disposed) return false
       gifBusy = true
       try {
-        const frameDelay = Math.round(1000 / fps)
-        const frameCount = Math.max(2, Math.round(durationMs / frameDelay))
-        const gif = GIFEncoder()
-        // The slime's colour set barely changes frame to frame, so quantize
-        // once from the first frame and reuse it: re-quantizing every frame
-        // was the dominant cost of recording and made frame colours drift.
-        let palette: Palette | null = null
-        const clearColor = pageBackground()
-        for (let i = 0; i < frameCount; i++) {
-          const { pixels, width, height } = app.renderer.extract.pixels({
-            target: app.stage,
-            resolution: 1,
-            clearColor,
-          })
-          palette ??= quantize(pixels, GIF_MAX_COLORS)
-          const index = applyPalette(pixels, palette)
-          gif.writeFrame(index, width, height, { palette, delay: frameDelay })
-          if (disposed) return false
-          if (i < frameCount - 1) await sleep(frameDelay)
-        }
-        gif.finish()
-        const gifBlob = new Blob([gif.bytes()], { type: 'image/gif' })
-        const url = URL.createObjectURL(gifBlob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'motionplay-slime.gif'
-        a.click()
-        URL.revokeObjectURL(url)
+        const gif = await recordStageGif(app, {
+          durationMs,
+          fps,
+          background: pageBackground(),
+          cancelled: () => disposed,
+        })
+        if (!gif) return false
+        downloadBlob(gif, `${EXPORT_FILENAME}.gif`)
         return true
       } finally {
         gifBusy = false
@@ -370,12 +330,11 @@ export function useSlime(): UseSlimeResult {
               field.add(s.kind, { x: s.x * view.w, y: s.y * view.h }, blob)
             }
           },
-          center: () => blob.center(),
           size: () => ({ ...view }),
           screenshot: (filename) =>
             app.renderer.extract.download({
               target: app.stage,
-              filename: filename ?? 'motionplay-slime.png',
+              filename: filename ?? `${EXPORT_FILENAME}.png`,
             }),
           recordGif,
         }

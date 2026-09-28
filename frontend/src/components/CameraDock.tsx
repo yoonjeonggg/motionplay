@@ -29,7 +29,9 @@ export function CameraDock({ controller, toppingKind, onStreamingChange }: Props
     {},
     (next) => {
       const now = performance.now()
-      if (now - lastGestureUi.current < GESTURE_UI_INTERVAL) return
+      // Never throttle "no hands": the driver sends it only once, and
+      // dropping it would leave stale gesture chips on screen.
+      if (next.length > 0 && now - lastGestureUi.current < GESTURE_UI_INTERVAL) return
       lastGestureUi.current = now
       setGestures(next)
     },

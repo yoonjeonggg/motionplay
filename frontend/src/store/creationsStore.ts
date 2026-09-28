@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import {
   api as defaultApi,
-  ApiError,
   type ApiClient,
   type Creation,
   type CreationInput,
+  errorMessage,
 } from '../api/client'
 
 export type CreationsStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -20,10 +20,6 @@ export type CreationsState = {
   clear: () => void
 }
 
-function message(err: unknown): string {
-  return err instanceof ApiError ? err.message : '알 수 없는 오류가 발생했습니다.'
-}
-
 export function createCreationsStore(api: ApiClient) {
   return create<CreationsState>((set, get) => ({
     items: [],
@@ -36,7 +32,7 @@ export function createCreationsStore(api: ApiClient) {
         const { creations } = await api.listCreations()
         set({ items: creations, status: 'ready' })
       } catch (err) {
-        set({ status: 'error', error: message(err) })
+        set({ status: 'error', error: errorMessage(err) })
       }
     },
 
@@ -47,7 +43,7 @@ export function createCreationsStore(api: ApiClient) {
         set({ items: [creation, ...get().items], status: 'ready' })
         return true
       } catch (err) {
-        set({ error: message(err) })
+        set({ error: errorMessage(err) })
         return false
       }
     },
@@ -58,7 +54,7 @@ export function createCreationsStore(api: ApiClient) {
       try {
         await api.deleteCreation(id)
       } catch (err) {
-        set({ items: before, error: message(err) })
+        set({ items: before, error: errorMessage(err) })
       }
     },
 
@@ -70,7 +66,7 @@ export function createCreationsStore(api: ApiClient) {
         })
         return shareSlug
       } catch (err) {
-        set({ error: message(err) })
+        set({ error: errorMessage(err) })
         return null
       }
     },
