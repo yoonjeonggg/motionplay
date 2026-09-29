@@ -38,20 +38,18 @@ export function useCamera(): UseCameraResult {
     setStatus('requesting')
     setError(null)
     try {
+      const video = videoRef.current
+      if (!video) throw new Error('비디오 요소를 찾을 수 없습니다.')
       const stream = await navigator.mediaDevices.getUserMedia(CONSTRAINTS)
       streamRef.current = stream
-      const video = videoRef.current
-      if (!video) {
-        stream.getTracks().forEach((track) => track.stop())
-        streamRef.current = null
-        setStatus('error')
-        setError('비디오 요소를 찾을 수 없습니다.')
-        return
-      }
       video.srcObject = stream
       await video.play()
       setStatus('streaming')
     } catch (err) {
+      // Release whatever was acquired before the failure (e.g. play() was
+      // rejected): otherwise the camera stays on and the streamRef guard
+      // above blocks every retry.
+      stop()
       const name = err instanceof DOMException ? err.name : ''
       if (name === 'NotAllowedError' || name === 'SecurityError') {
         setStatus('denied')
@@ -64,7 +62,7 @@ export function useCamera(): UseCameraResult {
         setError(err instanceof Error ? err.message : '카메라를 시작하지 못했습니다.')
       }
     }
-  }, [])
+  }, [stop])
 
   useEffect(() => stop, [stop])
 
