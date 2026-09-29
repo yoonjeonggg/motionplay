@@ -68,40 +68,51 @@ type payload struct {
 	Toppings ToppingList `json:"toppings"`
 }
 
-func (p payload) validate() (ToppingList, bool) {
+func (p payload) valid() bool {
 	if len(p.Toppings) > maxToppings || p.Color < 0 || p.Color > maxColor {
-		return nil, false
+		return false
 	}
-	list := make(ToppingList, 0, len(p.Toppings))
 	for _, t := range p.Toppings {
 		if !toppingKinds[t.Kind] || t.X < 0 || t.X > 1 || t.Y < 0 || t.Y > 1 {
-			return nil, false
+			return false
 		}
-		list = append(list, t)
 	}
-	return list, true
+	return true
+}
+
+// bindPayload decodes and validates a create/update body, answering 400 on
+// failure. The title comes back trimmed.
+func bindPayload(c *gin.Context) (payload, bool) {
+	var body payload
+	if err := c.ShouldBindJSON(&body); err != nil {
+		httpx.Error(c, http.StatusBadRequest, "title is required; softness must be 0..1")
+		return payload{}, false
+	}
+	if !body.valid() {
+		httpx.Error(c, http.StatusBadRequest, "invalid color or toppings")
+		return payload{}, false
+	}
+	body.Title = strings.TrimSpace(body.Title)
+	if body.Toppings == nil {
+		body.Toppings = ToppingList{}
+	}
+	return body, true
 }
 
 func (h *Handler) create(c *gin.Context) {
 	userID, _ := auth.UserID(c)
 
-	var body payload
-	if err := c.ShouldBindJSON(&body); err != nil {
-		httpx.Error(c, http.StatusBadRequest, "title is required; softness must be 0..1")
-		return
-	}
-	toppings, ok := body.validate()
+	body, ok := bindPayload(c)
 	if !ok {
-		httpx.Error(c, http.StatusBadRequest, "invalid color or toppings")
 		return
 	}
 
 	item := &Creation{
 		UserID:   userID,
-		Title:    strings.TrimSpace(body.Title),
+		Title:    body.Title,
 		Color:    body.Color,
 		Softness: body.Softness,
-		Toppings: toppings,
+		Toppings: body.Toppings,
 	}
 	if err := h.store.Create(item); err != nil {
 		httpx.Error(c, http.StatusInternalServerError, "could not save creation")
@@ -141,14 +152,8 @@ func (h *Handler) update(c *gin.Context) {
 		return
 	}
 
-	var body payload
-	if err := c.ShouldBindJSON(&body); err != nil {
-		httpx.Error(c, http.StatusBadRequest, "title is required; softness must be 0..1")
-		return
-	}
-	toppings, valid := body.validate()
-	if !valid {
-		httpx.Error(c, http.StatusBadRequest, "invalid color or toppings")
+	body, ok := bindPayload(c)
+	if !ok {
 		return
 	}
 
@@ -157,10 +162,10 @@ func (h *Handler) update(c *gin.Context) {
 		storeError(c, err, "could not load creation")
 		return
 	}
-	item.Title = strings.TrimSpace(body.Title)
+	item.Title = body.Title
 	item.Color = body.Color
 	item.Softness = body.Softness
-	item.Toppings = toppings
+	item.Toppings = body.Toppings
 	if err := h.store.Update(item); err != nil {
 		httpx.Error(c, http.StatusInternalServerError, "could not update creation")
 		return
