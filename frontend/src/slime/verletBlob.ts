@@ -5,9 +5,11 @@
  * (pressure) constraint. This gives the squishy "slime" behaviour: press it and
  * it spreads, pull it and it stretches, let go and it wobbles back.
  *
- * Rigid toppings later live in Matter.js; the slime body itself is custom so we
- * can tune the feel and render it as one smooth closed shape.
+ * The body is custom rather than a physics engine so the feel can be tuned and
+ * it renders as one smooth closed shape. Toppings ride on perimeter points
+ * (see ToppingField) instead of being simulated.
  */
+import { clamp } from '../lib/math'
 
 export type Vec2 = { x: number; y: number }
 
@@ -176,7 +178,7 @@ export class VerletBlob {
   }
 
   step(dtSeconds: number) {
-    const dt = Math.min(Math.max(dtSeconds, 0), 1 / 30)
+    const dt = clamp(dtSeconds, 0, 1 / 30)
     this.integrate(dt)
     for (let i = 0; i < this.opts.constraintIterations; i++) {
       this.solveEdges()
@@ -191,8 +193,8 @@ export class VerletBlob {
     const { w, h } = this.bounds
     for (const p of this.points) {
       if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
-        p.x = Math.min(Math.max(p.px, 0), w) || w / 2
-        p.y = Math.min(Math.max(p.py, 0), h) || h / 2
+        p.x = clamp(p.px, 0, w) || w / 2
+        p.y = clamp(p.py, 0, h) || h / 2
         p.px = p.x
         p.py = p.y
       }
@@ -226,8 +228,7 @@ export class VerletBlob {
       const dx = b.x - a.x
       const dy = b.y - a.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1e-4
-      let diff = ((dist - this.restLength) / dist) * 0.5 * k
-      diff = Math.min(Math.max(diff, -0.5), 0.5)
+      const diff = clamp(((dist - this.restLength) / dist) * 0.5 * k, -0.5, 0.5)
       const ox = dx * diff
       const oy = dy * diff
       if (!a.pinned) {
@@ -244,7 +245,7 @@ export class VerletBlob {
   private solvePressure() {
     const { area, center: c } = this.areaAndCenter()
     const current = area || 1
-    const ratio = Math.min(Math.max(this.restArea / current, 0.5), 2)
+    const ratio = clamp(this.restArea / current, 0.5, 2)
     const push = (ratio - 1) * this.opts.pressure
     if (Math.abs(push) < 1e-4) return
     for (const p of this.points) {

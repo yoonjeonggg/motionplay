@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Hand, HandFist, HandGrab, LoaderCircle, ShieldCheck, Video } from 'lucide-react'
 import { type CameraStatus, useCamera } from '../hooks/useCamera'
 import { type TrackerStatus, useHandTracking } from '../hooks/useHandTracking'
+import { clamp01 } from '../lib/math'
 import { createHandSlimeDriver, type HandGesture } from '../slime/handControl'
 import type { ToppingKind } from '../slime/toppings'
 import type { SlimeController } from '../slime/useSlime'
@@ -115,7 +116,7 @@ function GestureStrip({ gestures }: { gestures: HandGesture[] }) {
   return (
     <div className="gesture-strip">
       {gestures.map((g, i) => {
-        const level = Math.max(0, Math.min(1, (g.openness - 0.7) / 1.5))
+        const level = clamp01((g.openness - 0.7) / 1.5)
         const Icon = g.pinching ? HandGrab : g.gripping ? HandFist : Hand
         const label = g.pinching ? '집기' : g.gripping ? '주먹' : '편 손'
         return (

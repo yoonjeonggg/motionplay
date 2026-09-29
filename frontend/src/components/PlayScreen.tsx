@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   CircleHelp,
   Eraser,
@@ -81,22 +81,23 @@ export function PlayScreen() {
   const [sharedTitle, setSharedTitle] = useState<string | null>(null)
   const [sharedRequest] = useState(() => fetchSharedFromUrl())
   const sharedApplied = useRef(false)
+  const applyShared = useEffectEvent((creation: SharedCreation) => {
+    sharedApplied.current = true
+    setSharedTitle(creation.title)
+    loadCreation(creation)
+  })
 
   useEffect(() => {
     if (!ready) return
     let cancelled = false
     void sharedRequest.then((creation) => {
       if (!creation || cancelled || sharedApplied.current) return
-      sharedApplied.current = true
-      setSharedTitle(creation.title)
-      setColor(creation.color)
-      setSoftness(creation.softness)
-      controller.current?.loadToppings(creation.toppings)
+      applyShared(creation)
     })
     return () => {
       cancelled = true
     }
-  }, [ready, sharedRequest, controller])
+  }, [ready, sharedRequest])
 
   const dismissShared = () => {
     setSharedTitle(null)

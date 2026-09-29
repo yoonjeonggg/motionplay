@@ -19,10 +19,8 @@ export function AuthWidget() {
 
   const submit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
-    const ok =
-      mode === 'login'
-        ? await login(email.trim(), password)
-        : await signup(email.trim(), password)
+    const authenticate = mode === 'login' ? login : signup
+    const ok = await authenticate(email.trim(), password)
     if (ok) {
       setOpen(false)
       setPassword('')

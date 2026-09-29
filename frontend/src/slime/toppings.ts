@@ -1,5 +1,6 @@
 import { GraphicsContext } from 'pixi.js'
 import type { Vec2, VerletBlob } from './verletBlob'
+import { clamp01 } from '../lib/math'
 
 export const TOPPING_KINDS = ['star', 'heart', 'pearl'] as const
 export type ToppingKind = (typeof TOPPING_KINDS)[number]
@@ -75,10 +76,6 @@ export class ToppingField {
 }
 
 export type ToppingSpec = { kind: ToppingKind; x: number; y: number }
-
-function clamp01(n: number): number {
-  return n < 0 ? 0 : n > 1 ? 1 : n
-}
 
 export function isToppingKind(v: string): v is ToppingKind {
   return (TOPPING_KINDS as readonly string[]).includes(v)

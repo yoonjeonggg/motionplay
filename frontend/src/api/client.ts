@@ -12,29 +12,21 @@ export type AuthUser = {
 
 export type ToppingSpec = { kind: string; x: number; y: number }
 
-export type Creation = {
-  id: number
-  title: string
-  color: number
-  softness: number
-  toppings: ToppingSpec[]
-  shareSlug?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export type CreationInput = {
-  title: string
-  color: number
-  softness: number
-  toppings: ToppingSpec[]
-}
-
+/** The slime itself: what a share link exposes and what a save sends. */
 export type SharedCreation = {
   title: string
   color: number
   softness: number
   toppings: ToppingSpec[]
+}
+
+export type CreationInput = SharedCreation
+
+export type Creation = SharedCreation & {
+  id: number
+  shareSlug?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export type TokenStorage = {
@@ -73,8 +65,7 @@ export function createApiClient({ baseUrl, storage, fetchImpl }: ClientOptions) 
   async function request<T>(
     method: string,
     path: string,
-    body?: unknown,
-    authed = false,
+    { body, authed = false }: { body?: unknown; authed?: boolean } = {},
   ): Promise<T> {
     const headers: Record<string, string> = {}
     if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -110,7 +101,7 @@ export function createApiClient({ baseUrl, storage, fetchImpl }: ClientOptions) 
   type AuthResponse = { token: string; user: AuthUser }
 
   async function authenticate(path: string, email: string, password: string) {
-    const res = await request<AuthResponse>('POST', path, { email, password })
+    const res = await request<AuthResponse>('POST', path, { body: { email, password } })
     storage.set(TOKEN_KEY, res.token)
     return res.user
   }
@@ -123,42 +114,22 @@ export function createApiClient({ baseUrl, storage, fetchImpl }: ClientOptions) 
       authenticate('/api/auth/signup', email, password),
     login: (email: string, password: string) =>
       authenticate('/api/auth/login', email, password),
-    me: () => request<{ user: AuthUser }>('GET', '/api/auth/me', undefined, true),
+    me: () => request<{ user: AuthUser }>('GET', '/api/auth/me', { authed: true }),
 
     listCreations: () =>
-      request<{ creations: Creation[] }>(
-        'GET',
-        '/api/creations',
-        undefined,
-        true,
-      ),
+      request<{ creations: Creation[] }>('GET', '/api/creations', { authed: true }),
     createCreation: (input: CreationInput) =>
-      request<{ creation: Creation }>('POST', '/api/creations', input, true),
+      request<{ creation: Creation }>('POST', '/api/creations', { authed: true, body: input }),
     updateCreation: (id: number, input: CreationInput) =>
-      request<{ creation: Creation }>(
-        'PUT',
-        `/api/creations/${id}`,
-        input,
-        true,
-      ),
+      request<{ creation: Creation }>('PUT', `/api/creations/${id}`, { authed: true, body: input }),
     deleteCreation: (id: number) =>
-      request<void>('DELETE', `/api/creations/${id}`, undefined, true),
+      request<void>('DELETE', `/api/creations/${id}`, { authed: true }),
     shareCreation: (id: number) =>
-      request<{ shareSlug: string }>(
-        'POST',
-        `/api/creations/${id}/share`,
-        undefined,
-        true,
-      ),
+      request<{ shareSlug: string }>('POST', `/api/creations/${id}/share`, { authed: true }),
+    // The slug comes from the page URL, so encode it: an unencoded
+    // "../creations" would otherwise resolve to a different API path.
     getShared: (slug: string) =>
-      request<{ creation: SharedCreation }>(
-        'GET',
-        // The slug comes from the page URL, so encode it: an unencoded
-        // "../creations" would otherwise resolve to a different API path.
-        `/api/share/${encodeURIComponent(slug)}`,
-        undefined,
-        false,
-      ),
+      request<{ creation: SharedCreation }>('GET', `/api/share/${encodeURIComponent(slug)}`),
   }
 }
 

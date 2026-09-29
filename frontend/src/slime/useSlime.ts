@@ -10,6 +10,7 @@ import {
 // Swaps Pixi's runtime-generated (new Function) shader/uniform code for
 // static versions, so the renderer works under our CSP without 'unsafe-eval'.
 import 'pixi.js/unsafe-eval'
+import { clamp01 } from '../lib/math'
 import {
   createToppingContext,
   isToppingKind,
@@ -74,7 +75,7 @@ const SLIME_ALPHA = 0.92
 
 /** Maps a 0..1 softness slider onto the blob's spring/damping feel. */
 function softnessToParams(v: number) {
-  const t = Math.min(Math.max(v, 0), 1)
+  const t = clamp01(v)
   return {
     edgeStiffness: 0.95 - t * 0.42,
     pressure: 0.95 - t * 0.4,
