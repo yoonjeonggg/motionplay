@@ -46,7 +46,6 @@
 @media (max-width: 640px) {
   .slime-panel {
     gap: 10px;
-    padding: 10px;
   }
 
   .field {

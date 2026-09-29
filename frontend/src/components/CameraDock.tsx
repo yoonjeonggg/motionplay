@@ -163,7 +163,7 @@ function HandControlPrompt({
         )}
         {requesting ? '카메라 준비 중' : '손으로 조작하기'}
       </button>
-      <p className="hand-prompt-note">
+      <p className="note hand-prompt-note">
         <ShieldCheck size={14} aria-hidden />
         영상은 기기에서만 처리되며 서버로 전송되지 않습니다.
       </p>

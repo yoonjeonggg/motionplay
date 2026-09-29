@@ -242,6 +242,22 @@ input {
   color: var(--text-muted);
 }
 
+/* A leading icon plus a short explanatory line, e.g. the privacy notes. */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.note svg {
+  flex: none;
+  margin-top: 2px;
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }

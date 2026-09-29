@@ -117,17 +117,11 @@
 }
 
 .hand-prompt-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 0;
   font-size: var(--text-xs);
   line-height: 1.45;
-  color: var(--text-muted);
 }
 
 .hand-prompt-note svg {
-  flex: none;
   margin-top: 1px;
 }
 

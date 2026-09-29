@@ -89,7 +89,7 @@ export function Onboarding({ onClose }: Props) {
           ))}
         </ol>
 
-        <p className="onboarding-privacy">
+        <p className="note">
           <ShieldCheck size={14} aria-hidden />
           카메라 영상은 기기에서만 처리되며 서버로 전송되지 않아요. 카메라 없이
           마우스나 터치로도 즐길 수 있어요.

@@ -69,21 +69,6 @@
   font-weight: 700;
 }
 
-.onboarding-privacy {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 0;
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
-.onboarding-privacy svg {
-  flex: none;
-  margin-top: 2px;
-}
-
 .onboarding-start {
   height: 40px;
 }
