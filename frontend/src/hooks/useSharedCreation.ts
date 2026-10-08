@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
-import { api, type SharedCreation } from '../api/client'
+import { api, errorMessage, type SharedCreation } from '../api/client'
 
 type UseSharedCreationResult = {
   /** Title of the applied shared slime, until dismissed. */
@@ -18,22 +18,27 @@ type UseSharedCreationResult = {
 export function useSharedCreation(
   ready: boolean,
   onLoad: (creation: SharedCreation) => void,
+  onError: (message: string) => void,
 ): UseSharedCreationResult {
   const [sharedTitle, setSharedTitle] = useState<string | null>(null)
   const [request] = useState(() => fetchSharedFromUrl())
   const applied = useRef(false)
-  const apply = useEffectEvent((creation: SharedCreation) => {
+  const apply = useEffectEvent((outcome: SharedOutcome) => {
     applied.current = true
-    setSharedTitle(creation.title)
-    onLoad(creation)
+    if ('error' in outcome) {
+      onError(outcome.error)
+      return
+    }
+    setSharedTitle(outcome.creation.title)
+    onLoad(outcome.creation)
   })
 
   useEffect(() => {
     if (!ready) return
     let cancelled = false
-    void request.then((creation) => {
-      if (!creation || cancelled || applied.current) return
-      apply(creation)
+    void request.then((outcome) => {
+      if (!outcome || cancelled || applied.current) return
+      apply(outcome)
     })
     return () => {
       cancelled = true
@@ -50,12 +55,15 @@ export function useSharedCreation(
   return { sharedTitle, dismissShared }
 }
 
-async function fetchSharedFromUrl(): Promise<SharedCreation | null> {
+type SharedOutcome = { creation: SharedCreation } | { error: string }
+
+async function fetchSharedFromUrl(): Promise<SharedOutcome | null> {
   const slug = new URLSearchParams(window.location.search).get('share')
   if (!slug) return null
   try {
-    return (await api.getShared(slug)).creation
-  } catch {
-    return null // unknown/expired link: just show the default slime
+    return { creation: (await api.getShared(slug)).creation }
+  } catch (err) {
+    // Unknown/deleted link: say so, and play with the default slime.
+    return { error: errorMessage(err) }
   }
 }

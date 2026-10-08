@@ -1,35 +1,36 @@
 import { useRef } from 'react'
-import type { Mode } from '../components/SlimePanel'
-import type { ToppingKind } from '../slime/toppings'
-import type { SlimeController } from '../slime/useSlime'
+import type { SlimeController } from '../slime/controller'
+import { isToppingTool, type Tool } from '../slime/tools'
 import type { Vec2 } from '../slime/verletBlob'
 
 const GRAB_RADIUS = 92
 
-type CanvasPointerEvent = React.PointerEvent<HTMLCanvasElement>
+type HostPointerEvent = React.PointerEvent<HTMLElement>
 
-function toLocal(e: CanvasPointerEvent): Vec2 {
+function toLocal(e: HostPointerEvent): Vec2 {
   const rect = e.currentTarget.getBoundingClientRect()
   return { x: e.clientX - rect.left, y: e.clientY - rect.top }
 }
 
 /**
- * Mouse/touch control of the slime canvas: drag to grab and stretch it in
- * squish mode, click to stick the selected topping in topping mode. Returns
- * handlers to spread onto the <canvas>.
+ * Mouse/touch control of the slime: drag to grab and stretch it with the
+ * squish tool, click to stick the selected topping with a topping tool.
+ * Returns handlers to spread onto the element hosting the slime canvas.
  */
 export function useSlimePointer(
   controller: React.RefObject<SlimeController | null>,
-  mode: Mode,
-  toppingKind: ToppingKind,
+  tool: Tool,
+  onToppingRejected?: () => void,
 ) {
   const dragging = useRef(false)
   const last = useRef<Vec2>({ x: 0, y: 0 })
 
-  const onPointerDown = (e: CanvasPointerEvent) => {
+  const onPointerDown = (e: HostPointerEvent) => {
+    if (e.button !== 0) return
     const p = toLocal(e)
-    if (mode === 'topping') {
-      controller.current?.addTopping(toppingKind, p)
+    if (isToppingTool(tool)) {
+      const added = controller.current?.addTopping(tool, p)
+      if (added === false) onToppingRejected?.()
       return
     }
     dragging.current = true
@@ -37,10 +38,12 @@ export function useSlimePointer(
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
-  const onPointerMove = (e: CanvasPointerEvent) => {
+  const onPointerMove = (e: HostPointerEvent) => {
     const p = toLocal(e)
-    if (mode === 'topping') {
-      controller.current?.setHeldTopping(toppingKind, p)
+    if (isToppingTool(tool)) {
+      // Touch has no hover, so a preview would just stick where the finger
+      // lifted.
+      if (e.pointerType === 'mouse') controller.current?.setHeldTopping(tool, p)
       return
     }
     if (!dragging.current) return
@@ -59,7 +62,7 @@ export function useSlimePointer(
 
   const onPointerLeave = () => {
     endDrag()
-    if (mode === 'topping') controller.current?.setHeldTopping(null, null)
+    controller.current?.setHeldTopping(null, null)
   }
 
   return {

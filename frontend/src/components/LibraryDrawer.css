@@ -1,0 +1,224 @@
+.drawer {
+  position: absolute;
+  top: 68px;
+  right: var(--gutter);
+  bottom: var(--gutter);
+  z-index: 25;
+  gap: 14px;
+  width: 340px;
+  max-height: calc(100% - 68px - var(--gutter));
+  height: fit-content;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawer-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.drawer-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawer-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Login / signup ------------------------------------------------------- */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tabs {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface-muted);
+  border-radius: var(--radius);
+}
+
+.tabs button {
+  flex: 1;
+  height: 32px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected='true'] {
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+.password {
+  position: relative;
+  display: block;
+}
+
+.password .input {
+  padding-right: 40px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: var(--text-muted);
+}
+
+/* Account + list -------------------------------------------------------- */
+.account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 12px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-radius: var(--radius);
+}
+
+.account-email {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.empty p {
+  margin: 0;
+}
+
+.empty p:first-child:not(.text-error) {
+  font-weight: 600;
+}
+
+.lib-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -6px;
+  padding: 0;
+  list-style: none;
+}
+
+.lib-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+  border-radius: var(--radius);
+}
+
+.lib-item:hover,
+.lib-item:focus-within {
+  background: var(--surface-muted);
+}
+
+.lib-item[data-current='true'] {
+  background: var(--surface-muted);
+  box-shadow: inset 3px 0 0 var(--text);
+}
+
+.lib-load {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 6px 10px 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.lib-color {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  box-shadow: inset -4px -5px 8px rgba(0, 0, 0, 0.12), inset 3px 3px 6px rgba(255, 255, 255, 0.45);
+}
+
+.lib-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lib-title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lib-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.lib-actions,
+.lib-confirm {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.lib-confirm {
+  gap: 4px;
+}
+
+/* Phones: a bottom sheet over the dock. */
+@media (max-width: 720px) {
+  .drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 82%;
+    height: auto;
+    border-bottom: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  /* Actions can't wait for a hover that never comes. */
+  .lib-item {
+    padding-right: 2px;
+  }
+}

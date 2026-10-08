@@ -1,5 +1,5 @@
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
-import type { SlimeController } from './useSlime'
+import type { SlimeController } from './controller'
 import type { ToppingKind } from './toppings'
 import type { Vec2 } from './verletBlob'
 

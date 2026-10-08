@@ -1,0 +1,66 @@
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--gutter);
+  pointer-events: none;
+}
+
+.topbar > * {
+  pointer-events: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.brand-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50% 50% 46% 54% / 58% 56% 44% 42%;
+  box-shadow: inset -3px -4px 6px rgba(0, 0, 0, 0.16), inset 2px 2px 4px rgba(255, 255, 255, 0.5);
+  transition: background 0.2s ease;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar-actions .btn {
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 720px) {
+  .topbar-label {
+    display: none;
+  }
+
+  .topbar-actions .btn:not(.btn-icon) {
+    width: var(--control);
+    padding: 0;
+  }
+
+  .brand {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand {
+    font-size: 0;
+  }
+}

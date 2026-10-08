@@ -1,12 +1,7 @@
 import { BlurFilter, Container, FillGradient, Graphics, GraphicsContext } from 'pixi.js'
 import { darken, lighten } from './color'
-import {
-  createToppingContext,
-  type ToppingField,
-  type ToppingKind,
-  TOPPING_KINDS,
-  TOPPING_SIZE,
-} from './toppings'
+import { createToppingContext } from './toppingShapes'
+import { type ToppingField, type ToppingKind, TOPPING_KINDS, TOPPING_SIZE } from './toppings'
 import type { Vec2, VerletBlob } from './verletBlob'
 
 /** A topping being carried toward the slime, not yet stuck to it. */

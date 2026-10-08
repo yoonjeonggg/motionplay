@@ -177,11 +177,23 @@ export class VerletBlob {
     for (const p of this.points) p.pinned = false
   }
 
+  /** Whether any point moved more than `eps` px in the last step. */
+  isMoving(eps = 0.02): boolean {
+    for (const p of this.points) {
+      if (Math.abs(p.x - p.px) > eps || Math.abs(p.y - p.py) > eps) return true
+    }
+    return false
+  }
+
   step(dtSeconds: number) {
     const dt = clamp(dtSeconds, 0, 1 / 30)
     this.integrate(dt)
     for (let i = 0; i < this.opts.constraintIterations; i++) {
-      this.solveEdges()
+      // Alternate the sweep direction: always relaxing edges in the same
+      // order nudges every point the same way round the ring each step, so
+      // a resting slime's outline slowly rotated like a tank tread —
+      // carrying the toppings anchored to it around with it.
+      this.solveEdges(i % 2 === 1)
       this.solvePressure()
       this.solveBounds()
     }
@@ -219,12 +231,14 @@ export class VerletBlob {
     }
   }
 
-  private solveEdges() {
+  private solveEdges(reverse: boolean) {
     const pts = this.points
+    const n = pts.length
     const k = this.opts.edgeStiffness
-    for (let i = 0; i < pts.length; i++) {
+    for (let step = 0; step < n; step++) {
+      const i = reverse ? n - 1 - step : step
       const a = pts[i]
-      const b = pts[(i + 1) % pts.length]
+      const b = pts[(i + 1) % n]
       const dx = b.x - a.x
       const dy = b.y - a.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1e-4

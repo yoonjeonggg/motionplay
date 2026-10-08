@@ -5,37 +5,57 @@
   background: var(--bg);
 }
 
-.slime-canvas {
+/* The slime canvas is created inside this box (see slimeApp.ts). */
+.slime-host {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   touch-action: none;
   cursor: grab;
 }
 
-.slime-canvas:active {
+.slime-host:active {
   cursor: grabbing;
 }
 
-.slime-canvas[data-mode='topping'] {
-  cursor: crosshair;
+.slime-host[data-tool='star'],
+.slime-host[data-tool='heart'],
+.slime-host[data-tool='pearl'] {
+  cursor: copy;
+}
+
+.slime-host > canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.slime-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--text-muted);
+  text-align: center;
+  pointer-events: none;
 }
 
 .share-banner {
   position: absolute;
-  top: 16px;
+  top: 68px;
   left: 50%;
-  z-index: 5;
+  z-index: 15;
   display: flex;
   align-items: center;
   gap: 8px;
+  max-width: calc(100% - 2 * var(--gutter));
   padding: 4px 4px 4px 12px;
-  font-size: var(--text-md);
-  color: var(--text);
+  font-size: var(--text-sm);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 999px;
   box-shadow: var(--shadow);
   transform: translateX(-50%);
 }
@@ -45,134 +65,146 @@
   color: var(--text-muted);
 }
 
-/* Top-left: slime settings + gallery ------------------------------------ */
-.left-dock {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 256px;
-  max-height: calc(100% - 120px);
-  overflow-y: auto;
+.share-banner span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Bottom bar: utilities | actions | account ------------------------------ */
-.bottom-bar {
+/* Bottom stack: toasts, hint, dock ---------------------------------------- */
+.bottom {
   position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 16px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: end;
-  gap: 12px;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: var(--gutter);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   pointer-events: none;
 }
 
-.bottom-bar > * {
+.bottom > * {
   pointer-events: auto;
 }
 
-.bottom-bar-start {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.bottom-bar-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.bottom-bar-end {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* The slime often rests right behind this, so it needs its own backing. */
 .hint {
   margin: 0;
-  padding: 4px 12px;
-  font-size: var(--text-md);
+  padding: 5px 14px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-muted);
   text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
   border-radius: 999px;
   pointer-events: none;
 }
 
-.toolbar {
+.save-label {
+  display: inline;
+}
+
+.save-pop {
+  /* The save button sits at the dock's right end, so right-anchoring fits. */
+  width: min(300px, calc(100vw - 32px));
+}
+
+.save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Toasts ---------------------------------------------------------------- */
+.toaster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.toast {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  gap: 10px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 8px 8px 8px 14px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--primary-text);
+  background: var(--primary);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
+  animation: toast-in 0.18s ease-out;
 }
 
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  margin: 0 4px;
-  background: var(--border);
+.toast[data-tone='success'] > svg {
+  color: #4ade80;
 }
 
-/* Narrow viewport ------------------------------------------------------ */
-@media (max-width: 640px) {
-  .left-dock {
-    top: 12px;
-    left: 12px;
-    width: calc(56vw - 18px);
-    max-height: calc(100% - 170px);
+.toast[data-tone='error'] {
+  color: #fff;
+  background: var(--danger);
+}
+
+:root[data-theme='dark'] .toast[data-tone='success'] > svg {
+  color: var(--success);
+  filter: brightness(0.7);
+}
+
+.toast > svg {
+  flex: none;
+}
+
+.toast-text {
+  flex: 1;
+}
+
+.toast-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (max-width: 720px) {
+  .bottom {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    gap: 8px;
   }
 
   .share-banner {
-    top: auto;
-    bottom: 132px;
-    max-width: calc(100vw - 24px);
-    font-size: var(--text-sm);
+    top: 60px;
   }
 
-  .bottom-bar {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      'center center'
-      'start end';
-  }
-
-  .bottom-bar-start {
-    grid-area: start;
-  }
-
-  .bottom-bar-center {
-    grid-area: center;
-  }
-
-  .bottom-bar-end {
-    grid-area: end;
-  }
-
-  .hint {
-    font-size: var(--text-sm);
-  }
-
-  .tool-btn {
-    width: 40px;
-    padding: 0;
-  }
-
-  .tool-btn-label {
+  .save-label {
     display: none;
+  }
+
+  .dock .btn-primary {
+    width: var(--control);
+    padding: 0;
   }
 }

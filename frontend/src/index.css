@@ -7,32 +7,40 @@
   --sans: system-ui, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', 'Malgun Gothic',
     sans-serif;
 
-  --bg: #f4f4f5;
+  --bg: #f2f2f4;
   --surface: #ffffff;
   --surface-muted: #f4f4f5;
-  --surface-hover: #e9e9ec;
+  --surface-hover: #ececef;
   --border: #e4e4e7;
   --border-strong: #d4d4d8;
   --text: #18181b;
-  --text-muted: #6b6b76;
+  --text-muted: #61616b;
   --text-subtle: #9a9aa3;
   --primary: #18181b;
   --primary-text: #ffffff;
   --danger: #dc2626;
+  --danger-soft: #fef2f2;
   --success: #16a34a;
-  --warning: #b45309;
   --focus: #2563eb;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 20px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.05), 0 16px 40px rgba(0, 0, 0, 0.12);
   --backdrop: rgba(24, 24, 27, 0.4);
+  /* Overlays on the camera feed stay dark in both themes. */
+  --scrim: rgba(17, 17, 19, 0.72);
+  --scrim-text: #f4f4f5;
 
+  --radius-lg: 16px;
   --radius: 12px;
   --radius-sm: 8px;
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-md: 13px;
-  --text-lg: 17px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 18px;
+  --control: 36px;
+  --gutter: 16px;
 
   font-family: var(--sans);
+  font-size: var(--text-md);
   line-height: 1.5;
   color-scheme: light;
   -webkit-font-smoothing: antialiased;
@@ -52,10 +60,11 @@
   --primary: #f4f4f5;
   --primary-text: #111113;
   --danger: #f87171;
+  --danger-soft: #2a1618;
   --success: #4ade80;
-  --warning: #fbbf24;
   --focus: #60a5fa;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 18px 44px rgba(0, 0, 0, 0.5);
   --backdrop: rgba(0, 0, 0, 0.55);
 
   color-scheme: dark;
@@ -82,11 +91,21 @@ button,
 input {
   font-family: inherit;
   font-size: inherit;
+  color: inherit;
 }
 
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* Shared UI primitives --------------------------------------------------- */
@@ -95,27 +114,21 @@ input {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px;
+  padding: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-}
-
-.panel-title {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: var(--text);
 }
 
 .btn {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
-  padding: 0 12px;
+  height: var(--control);
+  padding: 0 14px;
   font-size: var(--text-md);
   font-weight: 600;
   white-space: nowrap;
@@ -124,7 +137,7 @@ input {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
 .btn:hover:not(:disabled) {
@@ -132,7 +145,7 @@ input {
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -148,22 +161,7 @@ input {
 
 .btn-primary:hover:not(:disabled) {
   background: var(--primary);
-  opacity: 0.88;
-}
-
-.btn-sm {
-  height: 28px;
-  padding: 0 9px;
-  font-size: var(--text-sm);
-}
-
-.btn-icon {
-  width: 34px;
-  padding: 0;
-}
-
-.btn-icon.btn-sm {
-  width: 28px;
+  opacity: 0.86;
 }
 
 .btn-ghost {
@@ -175,45 +173,47 @@ input {
   color: var(--danger);
 }
 
-.segmented {
-  display: inline-flex;
-  padding: 2px;
-  gap: 2px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+.btn-danger-solid {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
-.segmented button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 26px;
-  min-width: 30px;
+.btn-danger-solid:hover:not(:disabled) {
+  background: var(--danger);
+  opacity: 0.88;
+}
+
+.btn-sm {
+  height: 30px;
   padding: 0 10px;
   font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-muted);
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
 }
 
-.segmented button:hover {
-  color: var(--text);
+.btn-icon {
+  width: var(--control);
+  padding: 0;
 }
 
-.segmented button[aria-pressed='true'] {
-  color: var(--text);
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+.btn-icon.btn-sm {
+  width: 30px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* A toggle that stays visibly "on" (camera, open drawer). */
+.btn[aria-pressed='true'] {
+  color: var(--primary-text);
+  background: var(--primary);
+  border-color: var(--primary);
 }
 
 .input {
-  height: 34px;
-  padding: 0 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
   font-size: var(--text-md);
   color: var(--text);
   background: var(--surface);
@@ -228,6 +228,19 @@ input {
 .input:focus {
   outline: none;
   border-color: var(--focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 20%, transparent);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .text-error {
@@ -246,7 +259,7 @@ input {
 .note {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   font-size: var(--text-sm);
   line-height: 1.5;
@@ -256,6 +269,72 @@ input {
 .note svg {
   flex: none;
   margin-top: 2px;
+}
+
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* Tooltips for icon-only buttons: data-tip shows on hover/focus. aria-label
+   still carries the name for screen readers. */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  padding: 4px 8px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--primary-text);
+  background: var(--primary);
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+[data-tip][data-tip-pos='below']::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+  transform: translate(-50%, -4px);
+}
+
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition-delay: 0.25s;
+}
+
+/* The menu it opened already says what the button does. */
+[data-tip][aria-expanded='true']::after {
+  display: none;
+}
+
+/* No hover on touch screens; a tooltip would just stick after a tap. */
+@media (hover: none) {
+  [data-tip]::after {
+    display: none;
+  }
 }
 
 .spin {
@@ -269,13 +348,16 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spin {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-@media (max-width: 640px) {
-  .panel {
-    padding: 10px;
+@media (max-width: 720px) {
+  :root {
+    --gutter: 12px;
   }
 }
