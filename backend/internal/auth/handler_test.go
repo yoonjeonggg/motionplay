@@ -3,8 +3,10 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +20,8 @@ type fakeStore struct {
 	byID    map[uint]*user.User
 	byEmail map[string]*user.User
 	nextID  uint
+	// lookupErr, when set, makes ByID fail as a database outage would.
+	lookupErr error
 }
 
 func newFakeStore() *fakeStore {
@@ -45,6 +49,9 @@ func (f *fakeStore) ByEmail(email string) (*user.User, error) {
 }
 
 func (f *fakeStore) ByID(id uint) (*user.User, error) {
+	if f.lookupErr != nil {
+		return nil, f.lookupErr
+	}
 	if u, ok := f.byID[id]; ok {
 		return u, nil
 	}
@@ -135,5 +142,38 @@ func TestLoginUnknownEmailMatchesWrongPassword(t *testing.T) {
 	}
 	if unknown.Body.String() != wrong.Body.String() {
 		t.Fatalf("responses differ: %s vs %s", unknown.Body, wrong.Body)
+	}
+}
+
+func TestSignupRejectsPasswordOverBcryptLimit(t *testing.T) {
+	r := newTestRouter()
+	// 30 runes passes a rune-counted max=72, but is 90 bytes: past what
+	// bcrypt accepts, which used to surface as a 500.
+	long := strings.Repeat("가", 30)
+	rec := doJSON(t, r, http.MethodPost, "/auth/signup", "", gin.H{"email": "a@b.com", "password": long})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400 (%s)", rec.Code, rec.Body)
+	}
+}
+
+func TestMeReportsStoreFailureAsServerError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := newFakeStore()
+	tokens := NewTokenIssuer("test-secret", time.Hour)
+	r := gin.New()
+	NewHandler(store, tokens).Routes(r.Group("/auth"))
+	token, err := tokens.Issue(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A deleted account is a 401: the token no longer maps to anyone.
+	if rec := doJSON(t, r, http.MethodGet, "/auth/me", token, nil); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("missing user status %d, want 401", rec.Code)
+	}
+	// An outage is not: a 401 would make the client discard a valid login.
+	store.lookupErr = errors.New("connection refused")
+	if rec := doJSON(t, r, http.MethodGet, "/auth/me", token, nil); rec.Code != http.StatusInternalServerError {
+		t.Fatalf("store failure status %d, want 500", rec.Code)
 	}
 }

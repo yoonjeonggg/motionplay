@@ -95,10 +95,19 @@ func (r *Repository) ByIDForUser(id, userID uint) (*Creation, error) {
 	return store.First[Creation](r.db.Where("id = ? AND user_id = ?", id, userID), ErrNotFound)
 }
 
+// Update saves the editable fields. It returns ErrNotFound if the row is
+// gone, e.g. deleted from another tab after the caller loaded it.
 func (r *Repository) Update(c *Creation) error {
-	return r.db.Model(c).
+	res := r.db.Model(c).
 		Select("title", "color", "softness", "toppings").
-		Updates(c).Error
+		Updates(c)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *Repository) Delete(id, userID uint) error {

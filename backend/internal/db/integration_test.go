@@ -81,6 +81,22 @@ func TestCreationUpdateBumpsUpdatedAt(t *testing.T) {
 	}
 }
 
+func TestCreationUpdateOfDeletedRowIsNotFound(t *testing.T) {
+	repo := creation.NewRepository(openTestDB(t))
+	c := &creation.Creation{UserID: 1, Title: "doomed"}
+	if err := repo.Create(c); err != nil {
+		t.Fatal(err)
+	}
+	// Deleted between the handler's load and its save, e.g. from another tab.
+	if err := repo.Delete(c.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	c.Title = "too late"
+	if err := repo.Update(c); !errors.Is(err, creation.ErrNotFound) {
+		t.Fatalf("update of deleted row err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestEnsureShareSlugIsStableUnderConcurrency(t *testing.T) {
 	repo := creation.NewRepository(openTestDB(t))
 	c := &creation.Creation{UserID: 1, Title: "shared"}

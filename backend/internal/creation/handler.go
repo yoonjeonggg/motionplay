@@ -169,7 +169,7 @@ func (h *Handler) update(c *gin.Context) {
 	}
 	body.applyTo(item)
 	if err := h.store.Update(item); err != nil {
-		httpx.Error(c, http.StatusInternalServerError, "could not update creation")
+		storeError(c, err, "could not update creation")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"creation": item})

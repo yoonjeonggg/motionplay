@@ -41,6 +41,11 @@ type credentials struct {
 	Password string `json:"password" binding:"required,min=8,max=72"`
 }
 
+// maxPasswordBytes is bcrypt's input limit. The binding's max=72 counts
+// characters, so a password of multi-byte (e.g. Korean) characters can pass
+// it and still be too long for bcrypt.
+const maxPasswordBytes = 72
+
 type authResponse struct {
 	Token string     `json:"token"`
 	User  *user.User `json:"user"`
@@ -50,6 +55,10 @@ func (h *Handler) signup(c *gin.Context) {
 	var body credentials
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httpx.Error(c, http.StatusBadRequest, "email and password (min 8 chars) are required")
+		return
+	}
+	if len(body.Password) > maxPasswordBytes {
+		httpx.Error(c, http.StatusBadRequest, "password is too long")
 		return
 	}
 	email := normalizeEmail(body.Email)
@@ -108,7 +117,13 @@ func (h *Handler) me(c *gin.Context) {
 	}
 	u, err := h.users.ByID(id)
 	if err != nil {
-		httpx.Error(c, http.StatusUnauthorized, "account no longer exists")
+		// Only a missing account invalidates the token. Reporting an outage
+		// as 401 would make the client throw away a perfectly good login.
+		if errors.Is(err, user.ErrNotFound) {
+			httpx.Error(c, http.StatusUnauthorized, "account no longer exists")
+			return
+		}
+		httpx.Error(c, http.StatusInternalServerError, "could not load account")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": u})
