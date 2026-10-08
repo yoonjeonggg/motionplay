@@ -260,6 +260,7 @@ func TestCreationRejectsBadInput(t *testing.T) {
 
 	cases := []gin.H{
 		{"title": "", "softness": 0.5},
+		{"title": "   ", "softness": 0.5},
 		{"title": "ok", "softness": 1.5},
 		{"title": "ok", "softness": 0.5, "toppings": []gin.H{{"kind": "star", "x": 2, "y": 0.5}}},
 		{"title": "ok", "softness": 0.5, "toppings": []gin.H{{"kind": "", "x": 0.5, "y": 0.5}}},

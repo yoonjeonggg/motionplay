@@ -69,7 +69,7 @@ type payload struct {
 }
 
 func (p payload) valid() bool {
-	if len(p.Toppings) > maxToppings || p.Color < 0 || p.Color > maxColor {
+	if p.Title == "" || len(p.Toppings) > maxToppings || p.Color < 0 || p.Color > maxColor {
 		return false
 	}
 	for _, t := range p.Toppings {
@@ -80,6 +80,14 @@ func (p payload) valid() bool {
 	return true
 }
 
+// applyTo copies the editable fields onto c.
+func (p payload) applyTo(c *Creation) {
+	c.Title = p.Title
+	c.Color = p.Color
+	c.Softness = p.Softness
+	c.Toppings = p.Toppings
+}
+
 // bindPayload decodes and validates a create/update body, answering 400 on
 // failure. The title comes back trimmed.
 func bindPayload(c *gin.Context) (payload, bool) {
@@ -88,11 +96,13 @@ func bindPayload(c *gin.Context) (payload, bool) {
 		httpx.Error(c, http.StatusBadRequest, "title is required; softness must be 0..1")
 		return payload{}, false
 	}
+	// Trim before validating, so a whitespace-only title is rejected rather
+	// than passing `required` and being stored empty.
+	body.Title = strings.TrimSpace(body.Title)
 	if !body.valid() {
-		httpx.Error(c, http.StatusBadRequest, "invalid color or toppings")
+		httpx.Error(c, http.StatusBadRequest, "invalid title, color or toppings")
 		return payload{}, false
 	}
-	body.Title = strings.TrimSpace(body.Title)
 	if body.Toppings == nil {
 		body.Toppings = ToppingList{}
 	}
@@ -107,13 +117,8 @@ func (h *Handler) create(c *gin.Context) {
 		return
 	}
 
-	item := &Creation{
-		UserID:   userID,
-		Title:    body.Title,
-		Color:    body.Color,
-		Softness: body.Softness,
-		Toppings: body.Toppings,
-	}
+	item := &Creation{UserID: userID}
+	body.applyTo(item)
 	if err := h.store.Create(item); err != nil {
 		httpx.Error(c, http.StatusInternalServerError, "could not save creation")
 		return
@@ -162,10 +167,7 @@ func (h *Handler) update(c *gin.Context) {
 		storeError(c, err, "could not load creation")
 		return
 	}
-	item.Title = body.Title
-	item.Color = body.Color
-	item.Softness = body.Softness
-	item.Toppings = body.Toppings
+	body.applyTo(item)
 	if err := h.store.Update(item); err != nil {
 		httpx.Error(c, http.StatusInternalServerError, "could not update creation")
 		return
